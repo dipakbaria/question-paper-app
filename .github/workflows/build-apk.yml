@@ -13,7 +13,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 18
         uses: actions/setup-node@v4
         with:
           node-version: 18
@@ -24,17 +24,21 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle Engine
+      - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Install NPM Dependencies & Sync Capacitor
+      - name: Install Dependencies & Setup Capacitor Android
         run: |
           npm install
+          if [ ! -d "android" ]; then
+            echo "Android platform directory missing, creating..."
+            npx cap add android
+          fi
           npx cap sync android
 
-      - name: Build Debug APK via Gradle
-        working-directory: ./android
+      - name: Build Debug APK
         run: |
+          cd android
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
