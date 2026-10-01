@@ -27,18 +27,18 @@ jobs:
       - name: Setup Gradle Engine
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Install NPM Packages
-        run: npm install
-
-      - name: Initialize & Add Android Platform
+      - name: Install NPM Packages & Sync Capacitor
         run: |
-          npx cap init "Question Paper AI" "com.questionpaper.ai" --web-dir="public" || true
-          npx cap add android || true
+          npm install
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
           npx cap sync android
 
-      - name: Make Gradlew Executable & Build Debug APK
+      - name: Fix Windows CRLF Line Endings & Build Debug APK
         run: |
           cd android
+          sed -i 's/\r$//' gradlew
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
 
