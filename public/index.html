@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Question Paper AI Converter & Generator</title>
+  <!-- Tailwind CSS via CDN for crisp UI -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome for Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- html2pdf for A4 PDF export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <!-- docx.js for A4 DOCX export -->
+  <script src="https://unpkg.com/docx@8.5.0/build/index.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col">
+
+  <!-- Top Navigation Header -->
+  <header class="bg-indigo-700 text-white shadow-lg sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-2">
+      <div class="flex items-center gap-3">
+        <i class="fa-solid fa-file-pen text-2xl text-amber-300"></i>
+        <div>
+          <h1 class="font-bold text-xl leading-tight">Question Paper AI Studio</h1>
+          <p class="text-xs text-indigo-200">Convert Notebook Photos & Build A4 Exam Papers</p>
+        </div>
+      </div>
+
+      <!-- Role Switcher Tabs -->
+      <div class="flex items-center bg-indigo-800/80 p-1 rounded-lg border border-indigo-500/30 text-sm font-medium">
+        <button onclick="switchRole('teacher')" id="tab-teacher" class="px-3 py-1.5 rounded-md transition flex items-center gap-1.5 bg-white text-indigo-900 shadow">
+          <i class="fa-solid fa-chalkboard-user"></i> Teacher
+        </button>
+        <button onclick="switchRole('parent')" id="tab-parent" class="px-3 py-1.5 rounded-md transition flex items-center gap-1.5 text-indigo-100 hover:text-white">
+          <i class="fa-solid fa-user-graduate"></i> Student / Parent
+        </button>
+        <button onclick="switchRole('admin')" id="tab-admin" class="px-3 py-1.5 rounded-md transition flex items-center gap-1.5 text-indigo-100 hover:text-white">
+          <i class="fa-solid fa-user-gear"></i> Admin
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-grow">
+
+    <!-- ================= TEACHER DASHBOARD ================= -->
+    <section id="role-teacher-view" class="space-y-6">
+      
+      <!-- Top Actions Banner -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <!-- Action 1: Upload Photos -->
+        <button onclick="openModal('modal-upload')" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-indigo-400 transition text-left group flex flex-col justify-between">
+          <div class="flex justify-between items-start mb-3">
+            <div class="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-xl group-hover:bg-indigo-600 group-hover:text-white transition">
+              <i class="fa-solid fa-camera font-bold"></i>
+            </div>
+            <span class="text-xs font-semibold px-2 py-1 bg-emerald-100 text-emerald-700 rounded-full">AI OCR</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 group-hover:text-indigo-600 transition">Upload Photos</h3>
+            <p class="text-xs text-slate-500 mt-1">Camera click or Gallery upload notebook/textbook photos</p>
+          </div>
+        </button>
+
+        <!-- Action 2: 1-Click Auto Paper -->
+        <button onclick="generateAutoPaper()" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-amber-400 transition text-left group flex flex-col justify-between">
+          <div class="flex justify-between items-start mb-3">
+            <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl group-hover:bg-amber-500 group-hover:text-white transition">
+              <i class="fa-solid fa-bolt font-bold"></i>
+            </div>
+            <span class="text-xs font-semibold px-2 py-1 bg-amber-100 text-amber-800 rounded-full">Instant</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 group-hover:text-amber-600 transition">1-Click Auto Paper</h3>
+            <p class="text-xs text-slate-500 mt-1">Instant complete paper from selected chapter</p>
+          </div>
+        </button>
+
+        <!-- Action 3: Custom Paper Builder -->
+        <button onclick="openModal('modal-builder')" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-blue-400 transition text-left group flex flex-col justify-between">
+          <div class="flex justify-between items-start mb-3">
+            <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl group-hover:bg-blue-600 group-hover:text-white transition">
+              <i class="fa-solid fa-sliders font-bold"></i>
+            </div>
+            <span class="text-xs font-semibold px-2 py-1 bg-blue-100 text-blue-800 rounded-full">Custom</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 group-hover:text-blue-600 transition">Custom Builder</h3>
+            <p class="text-xs text-slate-500 mt-1">Add headings (Q1 Fill in blanks), subquestion count & chapters</p>
+          </div>
+        </button>
+
+        <!-- Action 4: Question Bank -->
+        <button onclick="scrollToQuestionBank()" class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm hover:shadow-md hover:border-purple-400 transition text-left group flex flex-col justify-between">
+          <div class="flex justify-between items-start mb-3">
+            <div class="w-12 h-12 bg-purple-50 text-purple-600 rounded-xl flex items-center justify-center text-xl group-hover:bg-purple-600 group-hover:text-white transition">
+              <i class="fa-solid fa-book-bookmark font-bold"></i>
+            </div>
+            <span class="text-xs font-semibold px-2 py-1 bg-purple-100 text-purple-800 rounded-full" id="total-questions-badge">0 Questions</span>
+          </div>
+          <div>
+            <h3 class="font-bold text-slate-900 group-hover:text-purple-600 transition">Chapter Bank</h3>
+            <p class="text-xs text-slate-500 mt-1">Explore saved questions by subject & chapter</p>
+          </div>
+        </button>
+      </div>
+
+      <!-- Main Studio Workspace (Left: Chapter Question Bank | Right: A4 Paper Preview) -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        
+        <!-- Left Column: Chapter Filter & Questions Explorer -->
+        <div class="lg:col-span-5 space-y-4">
+          <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="font-bold text-slate-900 flex items-center gap-2">
+                <i class="fa-solid fa-folder-tree text-indigo-600"></i> Chapter Question Bank
+              </h3>
+              <button onclick="loadQuestionBank()" class="text-xs text-indigo-600 hover:underline">
+                <i class="fa-solid fa-rotate-right"></i> Refresh
+              </button>
+            </div>
+
+            <!-- Subject & Chapter Filters -->
+            <div class="grid grid-cols-2 gap-2 mb-4">
+              <div>
+                <label class="text-xs font-medium text-slate-500 block mb-1">Subject</label>
+                <select id="filter-subject" onchange="renderChapterList()" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  <option value="ALL">All Subjects</option>
+                  <option value="EVS">EVS</option>
+                  <option value="English">English</option>
+                  <option value="Maths">Maths</option>
+                  <option value="Science">Science</option>
+                  <option value="Gujarati">Gujarati</option>
+                  <option value="Hindi">Hindi</option>
+                  <option value="Social Science">Social Science</option>
+                  <option value="General Knowledge">General Knowledge</option>
+                  <option value="Computer">Computer</option>
+                  <option value="Moral Science">Moral Science</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="text-xs font-medium text-slate-500 block mb-1">Chapter</label>
+                <select id="filter-chapter" onchange="renderQuestionBankList()" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                  <option value="ALL">All Chapters</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Questions List -->
+            <div id="question-bank-container" class="space-y-3 max-h-[550px] overflow-y-auto pr-1">
+              <!-- Dynamically populated -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Right Column: Live A4 Question Paper Preview & Control Toolbar -->
+        <div class="lg:col-span-7 space-y-4">
+          <!-- Subject & Chapter Active Control Bar -->
+          <div class="bg-indigo-900 text-white p-3.5 rounded-xl space-y-3 shadow-md border border-indigo-800">
+            <!-- Top Row: Subject & Chapter Selectors + Quick Upload Button -->
+            <div class="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-800/80 pb-2.5">
+              <div class="flex flex-wrap items-center gap-3 text-xs">
+                <div class="flex items-center gap-1.5 font-bold text-amber-300">
+                  <i class="fa-solid fa-book font-bold"></i> Active Paper:
+                </div>
+                <div class="flex items-center gap-1">
+                  <span class="text-[11px] text-indigo-200">Subject:</span>
+                  <select id="paper-subject-select" onchange="onPaperSubjectChange()" class="bg-indigo-950 text-white border border-indigo-700 text-xs rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-amber-400 focus:outline-none font-semibold">
+                    <option value="">-- Select Subject --</option>
+                    <option value="EVS">EVS</option>
+                    <option value="English">English</option>
+                    <option value="Maths">Maths</option>
+                    <option value="Science">Science</option>
+                    <option value="Gujarati">Gujarati</option>
+                    <option value="Hindi">Hindi</option>
+                    <option value="Social Science">Social Science</option>
+                    <option value="General Knowledge">General Knowledge</option>
+                    <option value="Computer">Computer</option>
+                    <option value="Moral Science">Moral Science</option>
+                  </select>
+                </div>
+                <div class="flex items-center gap-1 relative">
+                  <span class="text-[11px] text-indigo-200">Chapters:</span>
+                  <button id="btn-multi-chapter-toggle" onclick="toggleMultiChapterDropdown(event)" class="bg-indigo-950 text-white border border-indigo-700 text-xs rounded-lg px-2.5 py-1 focus:ring-2 focus:ring-amber-400 focus:outline-none font-semibold flex items-center justify-between gap-2 min-w-[150px]">
+                    <span id="multi-chapter-label" class="truncate">Select Chapters...</span>
+                    <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                  </button>
+
+                  <!-- Multi-Chapter Mobile & Desktop Popover Dropdown -->
+                  <div id="dropdown-multi-chapter" class="absolute left-0 top-full mt-1 w-64 bg-slate-900 border border-indigo-700 rounded-xl shadow-2xl hidden z-50 p-3 space-y-2 text-xs text-white">
+                    <div class="flex justify-between items-center border-b border-indigo-800 pb-2">
+                      <span class="font-bold text-amber-300 flex items-center gap-1.5">
+                        <i class="fa-solid fa-layer-group"></i> Select Chapters:
+                      </span>
+                      <button type="button" onclick="selectAllChapters(true)" class="text-[10px] text-indigo-300 hover:text-white underline font-semibold">Select All</button>
+                    </div>
+
+                    <!-- Checkboxes Container -->
+                    <div id="multi-chapter-checkboxes" class="max-h-48 overflow-y-auto space-y-1.5 pr-1 font-medium">
+                      <span class="text-slate-400 italic text-[11px]">Select a subject first...</span>
+                    </div>
+
+                    <div class="pt-2 border-t border-indigo-800 flex justify-end gap-2">
+                      <button type="button" onclick="toggleMultiChapterDropdown()" class="px-3 py-1 bg-indigo-950 text-indigo-300 hover:bg-indigo-800 rounded font-semibold text-[11px]">Cancel</button>
+                      <button type="button" onclick="applyMultiChapterSelection()" class="px-3.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded shadow text-[11px] flex items-center gap-1">
+                        <i class="fa-solid fa-check"></i> OK
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <button onclick="openUploadModalWithSubject()" class="px-3 py-1.5 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-lg shadow transition flex items-center gap-1.5">
+                <i class="fa-solid fa-camera"></i> 📷 Upload Photos
+              </button>
+            </div>
+
+            <!-- Bottom Row: Output Sheet Mode Switcher -->
+            <div class="flex flex-wrap justify-between items-center gap-2">
+              <span class="text-xs font-bold uppercase tracking-wider text-indigo-200 flex items-center gap-1.5">
+                <i class="fa-solid fa-sliders text-amber-400"></i> Output Sheet Mode:
+              </span>
+              <div class="flex items-center bg-indigo-950/80 p-1 rounded-lg border border-indigo-700/50 text-xs font-semibold">
+                <button id="btn-mode-exam" onclick="setPaperMode('exam')" class="px-3 py-1.5 rounded-md bg-white text-indigo-950 shadow font-bold transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-file-signature text-amber-500"></i> 📄 Exam Paper (Unsolved)
+                </button>
+                <button id="btn-mode-classwork" onclick="setPaperMode('classwork')" class="px-3 py-1.5 rounded-md text-indigo-200 hover:text-white transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-book-open text-emerald-400"></i> 📚 Classwork Notes (Solved)
+                </button>
+                <button id="btn-mode-homework" onclick="setPaperMode('homework')" class="px-3 py-1.5 rounded-md text-indigo-200 hover:text-white transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-pen-ruler text-blue-400"></i> 📝 Homework
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
+            <div class="flex items-center gap-2">
+              <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+              <h3 class="font-bold text-slate-900 text-sm">A4 Sheet Preview</h3>
+            </div>
+
+            <!-- Toolbar Controls -->
+            <div class="flex flex-wrap items-center gap-2">
+              <!-- Maths Logic Button -->
+              <button onclick="varyMathsData()" class="px-3 py-1.5 bg-amber-50 text-amber-700 hover:bg-amber-100 border border-amber-300 text-xs font-semibold rounded-lg transition flex items-center gap-1.5">
+                <i class="fa-solid fa-calculator"></i> Maths Numbers Change
+              </button>
+
+              <!-- 1-Click Shuffle / Regenerate -->
+              <button onclick="regenerateSubquestions()" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-300 text-xs font-semibold rounded-lg transition flex items-center gap-1.5">
+                <i class="fa-solid fa-shuffle"></i> 1-Click Shuffle
+              </button>
+
+              <!-- Share to Class -->
+              <button onclick="sharePaperWithParents()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+                <i class="fa-solid fa-share-nodes"></i> Share with Parents
+              </button>
+
+              <!-- Export Dropdown -->
+              <div class="relative group">
+                <button class="px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold rounded-lg shadow-sm transition flex items-center gap-1.5">
+                  <i class="fa-solid fa-download"></i> Export <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                </button>
+                <div class="absolute right-0 mt-1 w-36 bg-white border border-slate-200 rounded-lg shadow-xl hidden group-hover:block z-20 py-1 text-xs font-medium">
+                  <button onclick="exportToDOCX()" class="w-full text-left px-3 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-file-word text-blue-600"></i> Word (.docx)
+                  </button>
+                  <button onclick="exportToPDF()" class="w-full text-left px-3 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-file-pdf text-red-600"></i> PDF (.pdf)
+                  </button>
+                  <button onclick="window.print()" class="w-full text-left px-3 py-2 hover:bg-slate-100 text-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-print text-slate-600"></i> Print
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Printable A4 Paper Container -->
+          <div class="bg-slate-200 p-4 rounded-xl flex justify-center overflow-x-auto min-h-[600px]">
+            <!-- A4 Sheet (Standard 210mm x 297mm proportions) -->
+            <div id="a4-paper-sheet" class="bg-white w-[210mm] min-h-[297mm] p-[20mm] shadow-2xl rounded border border-slate-300 font-sans text-slate-900 space-y-4">
+              <!-- Default Initial State -->
+              <div class="text-center py-20 text-slate-400 space-y-3">
+                <i class="fa-solid fa-file-lines text-5xl text-slate-300"></i>
+                <h4 class="font-bold text-slate-600">No Paper Generated Yet</h4>
+                <p class="text-xs max-w-sm mx-auto">Click "1-Click Auto Paper", "Upload Photos", or "Custom Builder" to render an A4 Question Paper here.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- ================= STUDENT / PARENT DASHBOARD ================= -->
+    <section id="role-parent-view" class="hidden space-y-6">
+      <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900">Class Feed & Practice Center</h2>
+            <p class="text-xs text-slate-500">View daily classwork shared by teachers and generate self-practice papers.</p>
+          </div>
+          <button onclick="generateParentPracticePaper()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow transition flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> 1-Click Practice Paper
+          </button>
+        </div>
+
+        <!-- Classwork Shared Feed -->
+        <div class="border-t border-slate-100 pt-4 space-y-4" id="parent-feed-container">
+          <!-- Dynamically populated -->
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= WEB-ONLY SUPER ADMIN DASHBOARD ================= -->
+    <section id="role-admin-view" class="hidden space-y-6">
+      <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-6">
+        <div class="flex justify-between items-center border-b border-slate-100 pb-4">
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
+              <i class="fa-solid fa-shield-halved text-indigo-600"></i> Super Admin Portal
+            </h2>
+            <p class="text-xs text-slate-500 mt-0.5">Manage registered schools, view teacher & parent mobile numbers, subscriptions, and API keys.</p>
+          </div>
+          <span class="text-xs font-bold px-3 py-1 bg-amber-100 text-amber-800 rounded-full border border-amber-300 flex items-center gap-1.5">
+            <i class="fa-solid fa-laptop"></i> Web-Only Portal (Hidden on Mobile Apps)
+          </span>
+        </div>
+
+        <!-- Section 1: Add New School -->
+        <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+          <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-school text-indigo-600"></i> Register New School
+          </h4>
+          <form onsubmit="adminAddNewSchool(event)" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <input type="text" id="admin-school-name" required placeholder="School Name (e.g. St. Xavier High School)" class="text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <input type="text" id="admin-school-code" required placeholder="School Code (e.g. STX01)" class="text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <button type="submit" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow transition flex items-center justify-center gap-2">
+              <i class="fa-solid fa-plus"></i> Add School Entry
+            </button>
+          </form>
+        </div>
+
+        <!-- Section 2: School Directory with Nested Teachers & Parents (Name & Mobile Number) -->
+        <div class="space-y-3">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-folder-tree text-indigo-600"></i> School Directory (Teachers & Parents List)
+            </h4>
+            <button onclick="loadAdminDirectory()" class="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-semibold">
+              <i class="fa-solid fa-rotate-right"></i> Refresh Directory
+            </button>
+          </div>
+
+          <div id="admin-directory-container" class="space-y-4">
+            <!-- Dynamically populated school cards with teachers & parents -->
+          </div>
+        </div>
+
+        <!-- Gemini API Key Config Box -->
+        <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-xl space-y-3">
+          <div class="flex justify-between items-center">
+            <h4 class="font-bold text-indigo-900 text-sm flex items-center gap-2">
+              <i class="fa-solid fa-key text-amber-500"></i> Global Google Gemini API Key
+            </h4>
+            <span id="api-key-status-badge" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700">Checking...</span>
+          </div>
+          <p class="text-xs text-indigo-700">Central API key used for AI vision photo extraction across all registered schools:</p>
+          <div class="flex gap-2">
+            <input type="password" id="input-api-key" placeholder="AIzaSy..." class="flex-grow text-xs border border-indigo-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <button onclick="saveApiKey()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow transition">
+              Save Global Key
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ================= MODAL 1: UPLOAD PHOTOS ================= -->
+  <div id="modal-upload" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 space-y-5 border border-slate-200">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-camera text-indigo-600"></i> Upload Notebook & Textbook Photos
+        </h3>
+        <button onclick="closeModal('modal-upload')" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <!-- Upload Form -->
+      <form id="upload-form" onsubmit="handleImageUpload(event)" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium text-slate-600 block mb-1">Subject</label>
+            <input type="text" id="upload-subject" list="subject-options" required placeholder="Select or type subject" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <datalist id="subject-options">
+              <option value="Gujarati">
+              <option value="Hindi">
+              <option value="Social Science">
+              <option value="General Knowledge">
+              <option value="Computer">
+              <option value="EVS">
+              <option value="English">
+              <option value="Maths">
+              <option value="Science">
+              <option value="Moral Science">
+            </datalist>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-slate-600 block mb-1">Chapter No.</label>
+            <input type="text" id="upload-chap-no" required placeholder="e.g. 1" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div>
+          <label class="text-xs font-medium text-slate-600 block mb-1">Chapter Name</label>
+          <input type="text" id="upload-chap-name" required placeholder="e.g. Our Motherland - India" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+        </div>
+
+        <!-- Image Input -->
+        <div>
+          <label class="text-xs font-medium text-slate-600 block mb-1">Select / Capture Photos</label>
+          <input type="file" id="upload-files" multiple accept="image/*" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
+          <p class="text-[11px] text-slate-400 mt-1">Photos will be processed by AI and auto-deleted from server storage.</p>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-upload')" class="px-4 py-2 border border-slate-300 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition">Cancel</button>
+          <button type="submit" id="btn-submit-upload" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-2">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Process & Deduplicate
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 2: CUSTOM PAPER BUILDER ================= -->
+  <div id="modal-builder" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white max-w-xl w-full rounded-2xl shadow-2xl p-6 space-y-5 border border-slate-200">
+      <div class="flex justify-between items-center border-b border-slate-100 pb-3">
+        <h3 class="font-bold text-slate-900 flex items-center gap-2">
+          <i class="fa-solid fa-sliders text-blue-600"></i> Custom Paper Section Builder
+        </h3>
+        <button onclick="closeModal('modal-builder')" class="text-slate-400 hover:text-slate-600 text-lg">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="text-xs font-medium text-slate-600 block mb-1">Paper Heading (Question Title)</label>
+          <select id="builder-heading" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+            <option value="Tick (✓) the correct option:">Q. Tick (✓) the correct option:</option>
+            <option value="Fill in the blanks:">Q. Fill in the blanks:</option>
+            <option value="Write 'T' for true and 'F' for false statements:">Q. Write 'T' for true and 'F' for false statements:</option>
+            <option value="Answer the following questions:">Q. Answer the following questions:</option>
+            <option value="Divide using multiplication facts:">Q. Divide using multiplication facts:</option>
+            <option value="Make meaningful sentences using the given words:">Q. Make meaningful sentences using given words:</option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="text-xs font-medium text-slate-600 block mb-1">Select Chapter</label>
+            <select id="builder-chapter-select" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+              <!-- Dynamically filled -->
+            </select>
+          </div>
+          <div>
+            <label class="text-xs font-medium text-slate-600 block mb-1">Subquestion Count</label>
+            <input type="number" id="builder-count" min="1" max="20" value="5" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+          </div>
+        </div>
+
+        <div class="pt-2 flex justify-end gap-2">
+          <button type="button" onclick="closeModal('modal-builder')" class="px-4 py-2 border border-slate-300 text-slate-600 text-xs font-semibold rounded-lg hover:bg-slate-50 transition">Cancel</button>
+          <button type="button" onclick="addCustomSectionToPaper()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold rounded-lg shadow transition flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> Add Section To Paper
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= MODAL 3: LOGIN & REGISTRATION MODAL ================= -->
+  <div id="modal-login" class="fixed inset-0 bg-indigo-950/80 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
+    <div class="bg-white max-w-md w-full rounded-2xl shadow-2xl p-6 space-y-5 border border-slate-200">
+      <div class="text-center space-y-1 border-b border-slate-100 pb-4">
+        <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-2 font-bold shadow-inner">
+          <i class="fa-solid fa-mobile-screen-button"></i>
+        </div>
+        <h3 class="font-bold text-slate-900 text-lg">Welcome to Paper AI Studio</h3>
+        <p class="text-xs text-slate-500">Sign in with your Mobile Number to access your School</p>
+      </div>
+
+      <form id="login-form" onsubmit="handleMobileLogin(event)" class="space-y-4">
+        <!-- Role Choice -->
+        <div>
+          <label class="text-xs font-semibold text-slate-700 block mb-1.5">I am logging in as:</label>
+          <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+            <label class="flex items-center justify-center gap-1.5 p-2.5 border rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 border-slate-200" id="label-role-teacher">
+              <input type="radio" name="login-role" value="teacher" checked onchange="onLoginRoleChange()" class="text-indigo-600">
+              <span>📱 Teacher</span>
+            </label>
+            <label class="flex items-center justify-center gap-1.5 p-2.5 border rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 border-slate-200" id="label-role-parent">
+              <input type="radio" name="login-role" value="parent" onchange="onLoginRoleChange()" class="text-indigo-600">
+              <span>👪 Student/Parent</span>
+            </label>
+          </div>
+          <!-- Admin Choice (WEB ONLY) -->
+          <div id="admin-login-option-container" class="mt-2 text-center">
+            <label class="inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:underline cursor-pointer font-semibold">
+              <input type="radio" name="login-role" value="admin" onchange="onLoginRoleChange()" class="text-indigo-600">
+              <span>🔑 Super Admin Portal (Web-Only)</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- School Selection -->
+        <div id="field-school-select">
+          <label class="text-xs font-medium text-slate-600 block mb-1">Select School</label>
+          <select id="login-school-id" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold">
+            <!-- Dynamically populated -->
+          </select>
+        </div>
+
+        <!-- Name Field -->
+        <div id="field-user-name">
+          <label class="text-xs font-medium text-slate-600 block mb-1">Full Name</label>
+          <input type="text" id="login-user-name" placeholder="e.g. Sunita Sharma" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
+        </div>
+
+        <!-- Mobile Number Field -->
+        <div id="field-user-mobile">
+          <label class="text-xs font-medium text-slate-600 block mb-1">Mobile Number</label>
+          <div class="relative">
+            <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">+91</span>
+            <input type="tel" id="login-user-mobile" maxlength="10" placeholder="9876543210" class="w-full text-xs pl-11 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold tracking-wider">
+          </div>
+        </div>
+
+        <!-- Admin Passcode Field (Web-Only Admin Login) -->
+        <div id="field-admin-passcode" class="hidden">
+          <label class="text-xs font-semibold text-amber-700 block mb-1">Super Admin Passcode</label>
+          <input type="password" id="login-admin-passcode" placeholder="Enter admin passcode (admin123)" class="w-full text-xs border border-amber-300 bg-amber-50 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold">
+        </div>
+
+        <button type="submit" id="btn-submit-login" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-right-to-bracket"></i> Continue to App
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 space-y-2"></div>
+
+  <!-- Scripts -->
+  <script src="app.js"></script>
+</body>
+</html>

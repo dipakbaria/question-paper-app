@@ -1,0 +1,451 @@
+{
+  "chapters": [
+    {
+      "id": "ch_1790701980927",
+      "subject": "English",
+      "chapterNo": "1",
+      "chapterName": "Garden",
+      "questions": [
+        {
+          "id": "q_6vkf6n4fz",
+          "type": "fill_in_blanks",
+          "heading": "Name one animal of each type:",
+          "createdAt": "2026-09-29T17:13:00.929Z",
+          "question": "Herbivore",
+          "text": "Herbivore",
+          "answer": "Cow",
+          "answerLines": 2
+        },
+        {
+          "id": "q_hlriipgp8",
+          "type": "fill_in_blanks",
+          "heading": "Name one animal of each type:",
+          "createdAt": "2026-09-29T17:13:00.930Z",
+          "question": "Aquatic",
+          "text": "Aquatic",
+          "answer": "Fish",
+          "answerLines": 2
+        },
+        {
+          "id": "q_usvojnlk6",
+          "type": "fill_in_blanks",
+          "heading": "Name one animal of each type:",
+          "createdAt": "2026-09-29T17:13:00.930Z",
+          "question": "Carnivore",
+          "text": "Carnivore",
+          "answer": "Lion",
+          "answerLines": 2
+        },
+        {
+          "id": "q_abrckuuyd",
+          "type": "fill_in_blanks",
+          "heading": "Name one animal of each type:",
+          "createdAt": "2026-09-29T17:13:00.930Z",
+          "question": "Terrestrial",
+          "text": "Terrestrial",
+          "answer": "Tiger",
+          "answerLines": 2
+        },
+        {
+          "id": "q_4m2x1nfz8",
+          "type": "fill_in_blanks",
+          "heading": "Name one animal of each type:",
+          "createdAt": "2026-09-29T17:13:00.930Z",
+          "question": "Arboreal",
+          "text": "Arboreal",
+          "answer": "Monkey",
+          "answerLines": 2
+        },
+        {
+          "id": "q_rox4ptjts",
+          "type": "fill_in_blanks",
+          "heading": "Name one animal of each type:",
+          "createdAt": "2026-09-29T17:13:00.930Z",
+          "question": "Aerial",
+          "text": "Aerial",
+          "answer": "Bird",
+          "answerLines": 2
+        },
+        {
+          "id": "q_ak879bjs9",
+          "type": "fill_in_blanks",
+          "heading": "Name one animal of each type:",
+          "createdAt": "2026-09-29T17:13:00.930Z",
+          "question": "Omnivores",
+          "text": "Omnivores",
+          "answer": "Bear",
+          "answerLines": 2
+        },
+        {
+          "id": "q_5wxcabngc",
+          "type": "fill_in_blanks",
+          "heading": "Name one animal of each type:",
+          "createdAt": "2026-09-29T17:13:00.930Z",
+          "question": "Parasitic",
+          "text": "Parasitic",
+          "answer": "Leech",
+          "answerLines": 2
+        },
+        {
+          "id": "q_ne8yn19ad",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following:",
+          "createdAt": "2026-09-29T17:13:00.930Z",
+          "question": "Terrestrial animals",
+          "text": "Terrestrial animals",
+          "answer": "are those that lives on land.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_oqrtac8u0",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Nocturnal animals",
+          "text": "Nocturnal animals",
+          "answer": "are those that come out at night.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_j7z4f5r0e",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Aquatic animals",
+          "text": "Aquatic animals",
+          "answer": "are those that lives in water.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_oz4dxpy51",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Arboreal animals",
+          "text": "Arboreal animals",
+          "answer": "are those that lives on trees.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_2xm7b17j0",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Aerial animals",
+          "text": "Aerial animals",
+          "answer": "are those that can fly",
+          "answerLines": 2
+        },
+        {
+          "id": "q_340ahiqp8",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Amphibians",
+          "text": "Amphibians",
+          "answer": "are those that can be live both on land and water.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_muek8h6cu",
+          "type": "define",
+          "heading": "Define:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Habitat",
+          "text": "",
+          "term": "Habitat",
+          "answer": "The surroundings of an animals that forms the environment which is just right for it to live.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_zjicis0nl",
+          "type": "define",
+          "heading": "Define:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Herbivorous animal",
+          "text": "",
+          "term": "Herbivorous animal",
+          "answer": "Herbivorous animals are those that consume only plant.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_ux4h2axhk",
+          "type": "define",
+          "heading": "Define:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Omnivorous animals",
+          "text": "",
+          "term": "Omnivorous animals",
+          "answer": "Animals that eat both plant and the flesh other animals are called ominvorous animals.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_8nrotahd2",
+          "type": "define",
+          "heading": "Define:",
+          "createdAt": "2026-09-29T17:13:00.931Z",
+          "question": "Carnivorous animals",
+          "text": "",
+          "term": "Carnivorous animals",
+          "answer": "Animals that eat only the flesh of other animals are know as carnivorous animals.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_hqdnngmad",
+          "type": "short_answer",
+          "heading": "Answer the following question:",
+          "createdAt": "2026-09-29T17:13:00.932Z",
+          "question": "What are mammals?",
+          "text": "What are mammals?",
+          "answer": "Animals that have hair or fur, breath air and usually give birth to live babies.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_rzm43vqux",
+          "type": "short_answer",
+          "heading": "Answer the following question:",
+          "createdAt": "2026-09-29T17:13:00.932Z",
+          "question": "What is hibernation?",
+          "text": "What is hibernation?",
+          "answer": "Long winter sleep of animals is called hibernation.",
+          "answerLines": 1
+        },
+        {
+          "id": "q_pdl6j28dy",
+          "type": "fill_in_blanks",
+          "heading": "Stick a picture of the following:",
+          "createdAt": "2026-09-29T17:13:00.932Z",
+          "question": "Herbivorous",
+          "text": "Herbivorous",
+          "answer": "Picture of herbivorous animal",
+          "answerLines": 2
+        },
+        {
+          "id": "q_6hzzgzfyp",
+          "type": "fill_in_blanks",
+          "heading": "Stick a picture of the following:",
+          "createdAt": "2026-09-29T17:13:00.932Z",
+          "question": "Carnivorous",
+          "text": "Carnivorous",
+          "answer": "Picture of carnivorous animal",
+          "answerLines": 2
+        },
+        {
+          "id": "q_a5973skd0",
+          "type": "fill_in_blanks",
+          "heading": "Stick a picture of the following:",
+          "createdAt": "2026-09-29T17:13:00.932Z",
+          "question": "Omnivorous",
+          "text": "Omnivorous",
+          "answer": "Picture of omnivorous animal",
+          "answerLines": 2
+        },
+        {
+          "id": "q_7jwxbzjca",
+          "type": "fill_in_blanks",
+          "heading": "Stick a picture of the following:",
+          "createdAt": "2026-09-29T17:13:00.932Z",
+          "question": "Parasite",
+          "text": "Parasite",
+          "answer": "Picture of parasite",
+          "answerLines": 2
+        }
+      ]
+    },
+    {
+      "id": "ch_1790702226093",
+      "subject": "English",
+      "chapterNo": "2",
+      "chapterName": "Vihecal",
+      "questions": [
+        {
+          "id": "q_j87vz3i01",
+          "type": "define",
+          "heading": "Define",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "plateau",
+          "text": "",
+          "term": "plateau",
+          "answer": "A plateau is a raised area having steep slopes and flat top.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_8jmw5dhlk",
+          "type": "define",
+          "heading": "Define",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "peninsular",
+          "text": "",
+          "term": "peninsular",
+          "answer": "Peninsular is a triangular land with water on three sides and land on one side.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_4y217ft4s",
+          "type": "short_answer",
+          "heading": "Answer the following question",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "Name the major crops grown in Maharashtra?",
+          "text": "Name the major crops grown in Maharashtra?",
+          "answer": "Cotton, sugarcane and groundnut.",
+          "answerLines": 1
+        },
+        {
+          "id": "q_b8i99ncjw",
+          "type": "short_answer",
+          "heading": "Answer the following question",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "List any five major cities of the peninsular plateau?",
+          "text": "List any five major cities of the peninsular plateau?",
+          "answer": "Hyderabad, Nagpur, Bengaluru, Mysuru, Chennai etc.",
+          "answerLines": 1
+        },
+        {
+          "id": "q_v7934fcnr",
+          "type": "short_answer",
+          "heading": "Answer the following question",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "What is Madhya pradesh often called as?",
+          "text": "What is Madhya pradesh often called as?",
+          "answer": "Madhya pradesh is often called as 'The Heart of India'.",
+          "answerLines": 1
+        },
+        {
+          "id": "q_m1stcjljj",
+          "type": "short_answer",
+          "heading": "Answer the following question",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "Write the importance of the plateau?",
+          "text": "Write the importance of the plateau?",
+          "answer": "The peninsular plateau is important for both agriculture and industry.",
+          "answerLines": 2
+        },
+        {
+          "id": "q_kewatmlsl",
+          "type": "match_column",
+          "heading": "Match the column",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "",
+          "text": "",
+          "answer": "",
+          "answerLines": 2,
+          "left": "webbed feet",
+          "right": "Duck"
+        },
+        {
+          "id": "q_ug0bnrpq8",
+          "type": "match_column",
+          "heading": "Match the column",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "",
+          "text": "",
+          "answer": "",
+          "answerLines": 2,
+          "left": "scratching feet",
+          "right": "hen"
+        },
+        {
+          "id": "q_9iru7x1wq",
+          "type": "match_column",
+          "heading": "Match the column",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "",
+          "text": "",
+          "answer": "",
+          "answerLines": 2,
+          "left": "perching feet",
+          "right": "pigeon"
+        },
+        {
+          "id": "q_g12x5iz8p",
+          "type": "match_column",
+          "heading": "Match the column",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "",
+          "text": "",
+          "answer": "",
+          "answerLines": 2,
+          "left": "chisel - shaped beak",
+          "right": "woodpecker"
+        },
+        {
+          "id": "q_ffzvfruve",
+          "type": "match_column",
+          "heading": "Match the column",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "",
+          "text": "",
+          "answer": "",
+          "answerLines": 2,
+          "left": "eight legs",
+          "right": "spider"
+        },
+        {
+          "id": "q_2zu5e1v7o",
+          "type": "match_column",
+          "heading": "Match the column",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "",
+          "text": "",
+          "answer": "",
+          "answerLines": 2,
+          "left": "grasping feet",
+          "right": "hawk"
+        },
+        {
+          "id": "q_14qjgjy8k",
+          "type": "match_column",
+          "heading": "Match the column",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "",
+          "text": "",
+          "answer": "",
+          "answerLines": 2,
+          "left": "compound eyes",
+          "right": "Ant"
+        },
+        {
+          "id": "q_9lzbeivsp",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "Beak of birds",
+          "text": "Beak of birds",
+          "answer": "are used for eating food and for feeding the young ones",
+          "answerLines": 2
+        },
+        {
+          "id": "q_sk2rrjznr",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "A woodpecker has",
+          "text": "A woodpecker has",
+          "answer": "a long chisel-shaped beak",
+          "answerLines": 2
+        },
+        {
+          "id": "q_58dn5iinb",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "The shape of the beak in parrot",
+          "text": "The shape of the beak in parrot",
+          "answer": "allows them to crack nuts and seeds",
+          "answerLines": 2
+        },
+        {
+          "id": "q_bevd7nzsb",
+          "type": "fill_in_blanks",
+          "heading": "Complete the following",
+          "createdAt": "2026-09-29T17:17:06.094Z",
+          "question": "Sunbirds use their thin long and curved beak",
+          "text": "Sunbirds use their thin long and curved beak",
+          "answer": "for feeding on nectar",
+          "answerLines": 2
+        }
+      ]
+    }
+  ],
+  "papers": []
+}

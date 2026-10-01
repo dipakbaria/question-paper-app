@@ -1,0 +1,50 @@
+{
+  "schools": [
+    {
+      "id": "sch_dps01",
+      "name": "Delhi Public School",
+      "code": "DPS01",
+      "subscriptionStatus": "active",
+      "expiryDate": "2028-12-31",
+      "createdAt": "2026-10-01T00:00:00.000Z"
+    },
+    {
+      "id": "sch_gseb01",
+      "name": "GSEB Model High School",
+      "code": "GSEB01",
+      "subscriptionStatus": "active",
+      "expiryDate": "2028-12-31",
+      "createdAt": "2026-10-01T00:00:00.000Z"
+    }
+  ],
+  "users": [
+    {
+      "id": "usr_admin",
+      "name": "Super Admin",
+      "mobile": "9999999999",
+      "role": "admin",
+      "schoolId": "sch_dps01",
+      "createdAt": "2026-10-01T00:00:00.000Z"
+    },
+    {
+      "id": "usr_t1",
+      "name": "Sunita Sharma",
+      "mobile": "9876543210",
+      "role": "teacher",
+      "schoolId": "sch_dps01",
+      "createdAt": "2026-10-01T00:00:00.000Z"
+    },
+    {
+      "id": "usr_p1",
+      "name": "Rajesh Patel",
+      "mobile": "9123456789",
+      "role": "parent",
+      "schoolId": "sch_dps01",
+      "createdAt": "2026-10-01T00:00:00.000Z"
+    }
+  ],
+  "systemConfig": {
+    "globalApiKey": "",
+    "adminPasscode": "admin123"
+  }
+}
