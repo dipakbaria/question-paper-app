@@ -24,19 +24,19 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Setup Gradle
+      - name: Setup Gradle Engine
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Install Dependencies & Setup Capacitor Android
+      - name: Install NPM Packages
+        run: npm install
+
+      - name: Initialize & Add Android Platform
         run: |
-          npm install
-          if [ ! -d "android" ]; then
-            echo "Android platform directory missing, creating..."
-            npx cap add android
-          fi
+          npx cap init "Question Paper AI" "com.questionpaper.ai" --web-dir="public" || true
+          npx cap add android || true
           npx cap sync android
 
-      - name: Build Debug APK
+      - name: Make Gradlew Executable & Build Debug APK
         run: |
           cd android
           chmod +x gradlew
