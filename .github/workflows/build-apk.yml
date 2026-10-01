@@ -23,23 +23,16 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
+          cache: 'gradle'
 
       - name: Install NPM Dependencies & Sync Capacitor
         run: |
           npm install
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
           npx cap sync android
 
-      - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@v3
-        with:
-          build-root-directory: android
-
-      - name: Fix Windows CRLF Line Endings & Build Debug APK
-        working-directory: android
+      - name: Fix Windows Line Endings & Build Debug APK
         run: |
+          cd android
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
           ./gradlew assembleDebug --no-daemon
