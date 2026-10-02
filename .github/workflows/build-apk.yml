@@ -27,8 +27,10 @@ jobs:
       - name: Install NPM Dependencies
         run: npm install --force
 
-      - name: Sync Capacitor Android
-        run: npx --yes cap sync android
+      - name: Sync Web Assets to Android Assets
+        run: |
+          mkdir -p android/app/src/main/assets/public
+          cp -r public/* android/app/src/main/assets/public/
 
       - name: Fix Line Endings & Build Debug APK
         run: |
