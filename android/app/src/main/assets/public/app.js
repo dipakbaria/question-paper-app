@@ -57,23 +57,40 @@ async function openLoginModal() {
   openModal('modal-login');
 }
 
+const defaultSchoolsList = [
+  { id: 'sch_dps01', name: 'Delhi Public School', code: 'DPS01' },
+  { id: 'sch_gseb01', name: 'GSEB Model High School', code: 'GSEB01' },
+  { id: 'sch_model01', name: 'Model High School', code: 'MHS01' }
+];
+
 async function loadPublicSchools() {
+  const select = document.getElementById('login-school-id');
+  if (!select) return;
+
+  let schools = [...defaultSchoolsList];
+
   try {
     const res = await fetch('/api/schools');
-    const data = await res.json();
-    const select = document.getElementById('login-school-id');
-    if (select && data.schools) {
-      select.innerHTML = '';
-      data.schools.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.innerText = `${s.name} (Code: ${s.code})`;
-        select.appendChild(opt);
-      });
+    if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        if (data && Array.isArray(data.schools) && data.schools.length > 0) {
+          schools = data.schools;
+        }
+      }
     }
   } catch (err) {
-    console.warn('Failed to load schools for login modal', err);
+    console.warn('Network fetch failed for schools, using default school list', err);
   }
+
+  select.innerHTML = '';
+  schools.forEach(s => {
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.innerText = `${s.name} (Code: ${s.code || 'SCH'})`;
+    select.appendChild(opt);
+  });
 }
 
 function onLoginRoleChange() {
@@ -118,32 +135,80 @@ async function handleMobileLogin(e) {
 
   const mobile = document.getElementById('login-user-mobile').value.trim();
   const name = document.getElementById('login-user-name').value.trim();
-  const schoolId = document.getElementById('login-school-id').value;
+  const selectSchool = document.getElementById('login-school-id');
+  const schoolId = selectSchool ? selectSchool.value : 'sch_dps01';
+  const schoolText = (selectSchool && selectSchool.options[selectSchool.selectedIndex])
+    ? selectSchool.options[selectSchool.selectedIndex].text.split(' (Code:')[0]
+    : 'Delhi Public School';
   const pass = document.getElementById('login-admin-passcode').value.trim();
+
+  if (role !== 'admin' && (!name || !mobile)) {
+    showToast('Please enter your Name and Mobile Number!', 'error');
+    return;
+  }
 
   const btn = document.getElementById('btn-submit-login');
   btn.disabled = true;
   btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...`;
 
   try {
-    const response = await fetch('/api/auth/login-mobile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        mobile,
-        name,
-        role,
-        schoolId,
-        adminPasscode: pass
-      })
-    });
+    let authUser = null;
 
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.error || 'Authentication failed');
+    try {
+      const response = await fetch('/api/auth/login-mobile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mobile,
+          name,
+          role,
+          schoolId,
+          adminPasscode: pass
+        })
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const result = await response.json();
+          if (result.success) {
+            authUser = result.user;
+          } else {
+            throw new Error(result.error || 'Authentication failed');
+          }
+        }
+      }
+    } catch (netErr) {
+      console.warn('Server auth endpoint offline/unreachable, using local auth session', netErr);
     }
 
-    currentUser = result.user;
+    // Fallback: If running offline / inside Android APK without backend server endpoint
+    if (!authUser) {
+      if (role === 'admin') {
+        if (pass !== 'admin123') {
+          throw new Error('Invalid Super Admin passcode! Default passcode is admin123');
+        }
+        authUser = {
+          id: 'usr_admin',
+          name: 'Super Admin',
+          mobile: '9999999999',
+          role: 'admin',
+          schoolId: 'sch_dps01',
+          schoolName: 'System Administration'
+        };
+      } else {
+        authUser = {
+          id: 'usr_' + (mobile || Date.now()),
+          name: name || 'User',
+          mobile: mobile || '9876543210',
+          role: role,
+          schoolId: schoolId || 'sch_dps01',
+          schoolName: schoolText || 'Delhi Public School'
+        };
+      }
+    }
+
+    currentUser = authUser;
     if (role === 'admin') {
       adminPasscode = pass;
       localStorage.setItem('paper_ai_admin_pass', pass);
@@ -221,19 +286,38 @@ function showToast(msg, type = 'success') {
   }, 3500);
 }
 
-// 1. Fetch Question Bank from Local Database API
+// 1. Fetch Question Bank from Local Database API (with LocalStorage Fallback)
 async function loadQuestionBank() {
   try {
     const res = await fetch('/api/question-bank');
-    dbData = await res.json();
-    renderChapterList();
-    renderQuestionBankList();
-    populateBuilderChapters();
-    populatePaperSubjectAndChapters();
-    updateTotalQuestionsBadge();
+    if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        dbData = await res.json();
+      } else {
+        throw new Error('Non-JSON response from server');
+      }
+    } else {
+      throw new Error('Server returned ' + res.status);
+    }
   } catch (err) {
-    showToast('Failed to load question bank data', 'error');
+    console.warn('Server offline, loading question bank from localStorage', err);
+    const savedDb = localStorage.getItem('paper_ai_question_bank');
+    if (savedDb) {
+      try {
+        dbData = JSON.parse(savedDb);
+      } catch (e) {}
+    }
   }
+
+  if (!dbData.chapters) dbData.chapters = [];
+  if (!dbData.papers) dbData.papers = [];
+
+  renderChapterList();
+  renderQuestionBankList();
+  populateBuilderChapters();
+  populatePaperSubjectAndChapters();
+  updateTotalQuestionsBadge();
 }
 
 function updateTotalQuestionsBadge() {
