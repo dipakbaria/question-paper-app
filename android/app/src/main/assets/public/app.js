@@ -421,6 +421,28 @@ async function loadQuestionBank() {
   updateTotalQuestionsBadge();
 }
 
+// Save Question Bank to LocalStorage & Backend Server
+async function saveQuestionBank() {
+  try {
+    localStorage.setItem('paper_ai_question_bank', JSON.stringify(dbData));
+  } catch (e) {
+    console.warn('Failed to save question bank to localStorage:', e);
+  }
+
+  try {
+    const res = await fetch('/api/question-bank', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(dbData)
+    });
+    if (!res.ok) {
+      console.warn('Server question-bank save returned status', res.status);
+    }
+  } catch (err) {
+    console.warn('Server offline/unreachable, saved question bank locally in localStorage', err);
+  }
+}
+
 function updateTotalQuestionsBadge() {
   let total = 0;
   if (dbData.chapters) {
