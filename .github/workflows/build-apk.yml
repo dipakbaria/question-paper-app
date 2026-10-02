@@ -24,10 +24,8 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install NPM Dependencies & Update Capacitor
-        run: |
-          npm install --force
-          npx cap update android
+      - name: Install NPM Dependencies
+        run: npm install --force
 
       - name: Sync Web Assets to Android Assets
         run: |
@@ -39,7 +37,7 @@ jobs:
           cd android
           sed -i 's/\r$//' gradlew
           chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+          ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
