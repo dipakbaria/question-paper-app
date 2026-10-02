@@ -24,8 +24,10 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install NPM Dependencies
-        run: npm install --force
+      - name: Install NPM Dependencies & Update Capacitor
+        run: |
+          npm install --force
+          npx cap update android
 
       - name: Sync Web Assets to Android Assets
         run: |
