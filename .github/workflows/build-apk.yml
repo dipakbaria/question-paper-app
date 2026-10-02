@@ -24,10 +24,11 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Install NPM Dependencies & Sync Capacitor
-        run: |
-          npm install --force
-          npx --yes cap sync android
+      - name: Install NPM Dependencies
+        run: npm install --force
+
+      - name: Sync Capacitor Android
+        run: npx --yes cap sync android
 
       - name: Fix Line Endings & Build Debug APK
         run: |
