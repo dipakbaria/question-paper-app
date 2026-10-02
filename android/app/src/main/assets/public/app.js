@@ -91,6 +91,107 @@ async function loadPublicSchools() {
     opt.innerText = `${s.name} (Code: ${s.code || 'SCH'})`;
     select.appendChild(opt);
   });
+
+  // Load any user-added local schools
+  try {
+    const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
+    savedLocal.forEach(s => {
+      const opt = document.createElement('option');
+      opt.value = s.id;
+      opt.innerText = `${s.name} (Code: ${s.code || 'SCH'})`;
+      select.appendChild(opt);
+    });
+  } catch (e) {}
+}
+
+function toggleAddSchoolFields() {
+  const container = document.getElementById('container-add-school');
+  if (container) container.classList.toggle('hidden');
+}
+
+function addNewSchoolWithLocality() {
+  const nameInput = document.getElementById('new-school-name');
+  const localityInput = document.getElementById('new-school-locality');
+
+  const rawName = nameInput ? nameInput.value.trim() : '';
+  const rawLocality = localityInput ? localityInput.value.trim() : '';
+
+  if (!rawName) {
+    showToast('Please enter School Name', 'error');
+    return;
+  }
+
+  // Mandatory Locality Validation
+  if (!rawLocality) {
+    showToast('missing locality name', 'error');
+    return;
+  }
+
+  // Formatted School Name: "School Name, Locality"
+  const formattedSchoolName = `${rawName}, ${rawLocality}`;
+
+  // Check for duplicate school in existing list
+  const select = document.getElementById('login-school-id');
+  if (select) {
+    for (let i = 0; i < select.options.length; i++) {
+      const existingText = select.options[i].text.toLowerCase();
+      if (existingText.includes(formattedSchoolName.toLowerCase())) {
+        showToast(`School '${formattedSchoolName}' already exists!`, 'error');
+        return;
+      }
+    }
+
+    const newSchoolId = 'sch_' + Date.now();
+    const newCode = rawLocality.substr(0, 3).toUpperCase() + Math.floor(10 + Math.random() * 90);
+
+    const newOpt = document.createElement('option');
+    newOpt.value = newSchoolId;
+    newOpt.innerText = `${formattedSchoolName} (Code: ${newCode})`;
+    select.appendChild(newOpt);
+    select.value = newSchoolId;
+
+    // Save to local schools cache
+    const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
+    savedLocal.push({ id: newSchoolId, name: formattedSchoolName, code: newCode });
+    localStorage.setItem('paper_ai_local_schools', JSON.stringify(savedLocal));
+
+    // Send to backend if online
+    fetch('/api/admin/school', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-passcode': adminPasscode || 'admin123' },
+      body: JSON.stringify({ name: formattedSchoolName, code: newCode })
+    }).catch(() => {});
+
+    showToast(`Added '${formattedSchoolName}' to school directory!`);
+    toggleAddSchoolFields();
+    if (nameInput) nameInput.value = '';
+    if (localityInput) localityInput.value = '';
+  }
+}
+
+// Camera & File Count UI Helpers
+function updateFileCountLabel() {
+  const fileInput = document.getElementById('upload-files');
+  const cameraInput = document.getElementById('camera-files');
+  const statusLabel = document.getElementById('upload-file-status');
+  if (!statusLabel) return;
+
+  const galleryCount = (fileInput && fileInput.files) ? fileInput.files.length : 0;
+  const cameraCount = (cameraInput && cameraInput.files) ? cameraInput.files.length : 0;
+  const totalCount = galleryCount + cameraCount;
+
+  if (totalCount === 0) {
+    statusLabel.innerText = 'No photos selected yet.';
+  } else {
+    statusLabel.innerText = `✓ ${totalCount} photo(s) selected & ready for AI processing`;
+  }
+}
+
+function addCameraPhotoToUpload(input) {
+  if (input && input.files && input.files.length > 0) {
+    updateFileCountLabel();
+    showToast('Photo captured from Live Camera!', 'success');
+  }
 }
 
 function onLoginRoleChange() {

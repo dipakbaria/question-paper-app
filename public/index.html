@@ -426,11 +426,25 @@
           <input type="text" id="upload-chap-name" required placeholder="e.g. Our Motherland - India" class="w-full text-sm border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
         </div>
 
-        <!-- Image Input -->
+        <!-- Image Input with Live Camera Option -->
         <div>
-          <label class="text-xs font-medium text-slate-600 block mb-1">Select / Capture Photos</label>
-          <input type="file" id="upload-files" multiple accept="image/*" required class="block w-full text-xs text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 cursor-pointer">
-          <p class="text-[11px] text-slate-400 mt-1">Photos will be processed by AI and auto-deleted from server storage.</p>
+          <label class="text-xs font-semibold text-slate-700 block mb-1">Select / Capture Photos</label>
+          <div class="grid grid-cols-2 gap-2 mb-1.5">
+            <!-- Option A: File / Gallery Upload -->
+            <label class="border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 p-2.5 rounded-xl cursor-pointer text-center transition flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-800">
+              <i class="fa-solid fa-images text-indigo-600 text-sm"></i>
+              <span>Gallery Photos</span>
+              <input type="file" id="upload-files" multiple accept="image/*" onchange="updateFileCountLabel()" class="hidden">
+            </label>
+
+            <!-- Option B: Live Camera Capture -->
+            <label class="border border-indigo-600 bg-indigo-600 hover:bg-indigo-700 p-2.5 rounded-xl cursor-pointer text-center text-white transition flex items-center justify-center gap-1.5 text-xs font-bold shadow">
+              <i class="fa-solid fa-camera text-amber-300 text-sm"></i>
+              <span>📸 Live Camera</span>
+              <input type="file" id="camera-files" accept="image/*" capture="environment" onchange="addCameraPhotoToUpload(this)" class="hidden">
+            </label>
+          </div>
+          <p class="text-[11px] text-slate-500 font-medium" id="upload-file-status">No photos selected yet.</p>
         </div>
 
         <div class="pt-2 flex justify-end gap-2">
@@ -525,12 +539,33 @@
           </div>
         </div>
 
-        <!-- School Selection -->
+        <!-- School Selection with + Add New School Button -->
         <div id="field-school-select">
-          <label class="text-xs font-medium text-slate-600 block mb-1">Select School</label>
+          <div class="flex justify-between items-center mb-1">
+            <label class="text-xs font-medium text-slate-600 block">Select School</label>
+            <button type="button" onclick="toggleAddSchoolFields()" class="text-[11px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
+              <i class="fa-solid fa-plus-circle"></i> + Add New School
+            </button>
+          </div>
           <select id="login-school-id" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold">
             <!-- Dynamically populated -->
           </select>
+
+          <!-- Add New School Fields (Initially Hidden) -->
+          <div id="container-add-school" class="hidden mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
+            <h4 class="text-xs font-bold text-indigo-900 flex items-center gap-1">
+              <i class="fa-solid fa-school text-indigo-600"></i> Add New School with Locality
+            </h4>
+            <div>
+              <input type="text" id="new-school-name" placeholder="School Name (e.g. Sarvajanik Vidhyalaya)" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
+            </div>
+            <div>
+              <input type="text" id="new-school-locality" placeholder="Locality / City Name (e.g. Daman)" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
+            </div>
+            <button type="button" onclick="addNewSchoolWithLocality()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow transition flex items-center justify-center gap-1">
+              <i class="fa-solid fa-check-circle"></i> Save & Select School
+            </button>
+          </div>
         </div>
 
         <!-- Name Field -->
