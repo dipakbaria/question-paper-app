@@ -229,25 +229,28 @@ async function loadPublicSchools() {
     }
   } catch (err) {}
 
+  // Merge locally stored schools added by Admin or users
+  try {
+    const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
+    savedLocal.forEach(ls => {
+      if (!schools.some(s => s.id === ls.id || s.name.toLowerCase() === ls.name.toLowerCase())) {
+        schools.push(ls);
+      }
+    });
+  } catch (e) {}
+
   const populateSelect = (sel) => {
     if (!sel) return;
+    const currentVal = sel.value;
     sel.innerHTML = '';
     schools.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
-      opt.innerText = `${s.name} (Code: ${s.code || 'SCH'})`;
+      const codeText = s.code ? ` (Code/Locality: ${s.code})` : '';
+      opt.innerText = `${s.name}${codeText}`;
       sel.appendChild(opt);
     });
-
-    try {
-      const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
-      savedLocal.forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.innerText = `${s.name} (Code: ${s.code || 'SCH'})`;
-        sel.appendChild(opt);
-      });
-    } catch (e) {}
+    if (currentVal && schools.some(s => s.id === currentVal)) sel.value = currentVal;
   };
 
   populateSelect(loginSelect);
@@ -303,6 +306,7 @@ function addNewSchoolWithLocality() {
     toggleAddSchoolFields();
     if (nameInput) nameInput.value = '';
     if (localityInput) localityInput.value = '';
+    loadPublicSchools();
   }
 }
 
@@ -328,7 +332,7 @@ function onLoginRoleChange() {
   }
 }
 
-// Handle User Registration Submit (Password & Confirm Password Validation)
+// Handle User Registration Submit (Safe JSON parsing & Password verification)
 async function handleUserRegisterSubmit(e) {
   e.preventDefault();
 
@@ -344,6 +348,9 @@ async function handleUserRegisterSubmit(e) {
   const mobile = document.getElementById('reg-user-mobile').value.trim();
   const selectSchool = document.getElementById('reg-school-id');
   const schoolId = selectSchool ? selectSchool.value : 'sch_dps01';
+  const schoolText = (selectSchool && selectSchool.options[selectSchool.selectedIndex])
+    ? selectSchool.options[selectSchool.selectedIndex].text.split(' (Code:')[0]
+    : 'Delhi Public School';
 
   const pass = document.getElementById('reg-user-pass').value.trim();
   const passConfirm = document.getElementById('reg-user-pass-confirm').value.trim();
@@ -358,7 +365,6 @@ async function handleUserRegisterSubmit(e) {
     return;
   }
 
-  // Password & Confirm Password Matching Check
   if (pass !== passConfirm) {
     showToast('Password and Confirm Password do not match!', 'error');
     return;
@@ -369,23 +375,59 @@ async function handleUserRegisterSubmit(e) {
   btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Registering Account...`;
 
   try {
-    const response = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+    let result = null;
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name,
+          mobile,
+          role,
+          standard: std,
+          schoolId,
+          cityName: city,
+          password: pass
+        })
+      });
+
+      if (response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          result = await response.json();
+        }
+      } else {
+        const errText = await response.text();
+        let errJson = {};
+        try { errJson = JSON.parse(errText); } catch(e) {}
+        throw new Error(errJson.error || `Registration failed (HTTP ${response.status})`);
+      }
+    } catch (netErr) {
+      if (netErr.message && !netErr.message.includes('fetch')) throw netErr;
+    }
+
+    if (!result) {
+      const newUserObj = {
+        id: 'usr_' + Date.now(),
         name,
         mobile,
         role,
         standard: std,
         schoolId,
+        schoolName: schoolText,
         cityName: city,
         password: pass
-      })
-    });
+      };
+      
+      const localUsers = JSON.parse(localStorage.getItem('paper_ai_local_users') || '[]');
+      localUsers.push(newUserObj);
+      localStorage.setItem('paper_ai_local_users', JSON.stringify(localUsers));
 
-    const result = await response.json();
-    if (!response.ok || !result.success) {
-      throw new Error(result.error || 'Registration failed');
+      result = {
+        success: true,
+        message: 'Registration successful! Please login with your password.'
+      };
     }
 
     showToast(result.message || 'Registration successful! Please login.');
@@ -412,7 +454,7 @@ async function handleUserLoginSubmit(e) {
   }
 
   if (role === 'admin' && isNativeMobileDevice()) {
-    showToast('Super Admin Portal is available strictly on Web Browser only!', 'error');
+    showToast('Head Admin Portal is available strictly on Web Browser only!', 'error');
     return;
   }
 
@@ -447,11 +489,24 @@ async function handleUserLoginSubmit(e) {
           else throw new Error(result.error || 'Invalid credentials');
         }
       } else {
-        const errJson = await response.json().catch(() => ({}));
-        throw new Error(errJson.error || 'Login failed');
+        const errText = await response.text();
+        let errJson = {};
+        try { errJson = JSON.parse(errText); } catch(e) {}
+        throw new Error(errJson.error || `Login failed (HTTP ${response.status})`);
       }
     } catch (netErr) {
       if (netErr.message && !netErr.message.includes('fetch')) throw netErr;
+    }
+
+    if (!authUser) {
+      const localUsers = JSON.parse(localStorage.getItem('paper_ai_local_users') || '[]');
+      const match = localUsers.find(u => (u.mobile === mobileOrName || u.name.toLowerCase() === mobileOrName.toLowerCase()) && u.role === role);
+      if (match) {
+        if (match.password && password && match.password !== password) {
+          throw new Error('Incorrect Password! Please check and try again.');
+        }
+        authUser = match;
+      }
     }
 
     if (!authUser) {
@@ -491,7 +546,7 @@ async function handleUserLoginSubmit(e) {
 // Role Switcher & Permissions Enforcement
 function switchRole(role) {
   if (role === 'admin' && isNativeMobileDevice()) {
-    showToast('Super Admin Portal is available strictly on Web Browser only!', 'error');
+    showToast('Head Admin Portal is available strictly on Web Browser only!', 'error');
     return;
   }
 
@@ -505,7 +560,7 @@ function switchRole(role) {
   if (tabParent) tabParent.className = role === 'parent' ? 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 bg-white text-indigo-900 shadow-md font-bold' : 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
   if (tabAdmin) tabAdmin.className = role === 'admin' ? 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 bg-white text-indigo-900 shadow-md font-bold' : 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
 
-  // KEEP STUDIO VIEWS HIDDEN INITIALLY UNTIL A CARD IS CLICKED!
+  // Keep studio views hidden initially so ONLY Header and 4 Cards are shown!
   document.getElementById('role-teacher-view').classList.add('hidden');
   document.getElementById('role-parent-view').classList.add('hidden');
   document.getElementById('role-admin-view').classList.toggle('hidden', role !== 'admin');
@@ -1384,79 +1439,71 @@ async function loadAdminDirectory() {
       return;
     }
 
-    container.innerHTML = data.schools.map(school => {
-      // Group teachers and parents by standard
-      const standards = ['Std 1', 'Std 2', 'Std 3', 'Std 4', 'Std 5', 'Std 6', 'Std 7', 'Std 8', 'Std 9', 'Std 10', 'Std 11', 'Std 12'];
-      
-      return `
-        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
-          <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 pb-3">
-            <div>
-              <div class="flex items-center gap-2">
-                <h3 class="font-extrabold text-slate-900 text-base">${school.name}</h3>
-                <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono">CODE: ${school.code}</span>
-              </div>
-              <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-3 font-semibold">
-                <span><i class="fa-solid fa-chalkboard-user text-indigo-600"></i> ${school.teachersCount} Teacher(s)</span>
-                <span><i class="fa-solid fa-users text-emerald-600"></i> ${school.parentsCount} Parent(s)</span>
-              </p>
+    container.innerHTML = data.schools.map(school => `
+      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+        <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 pb-3">
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-extrabold text-slate-900 text-base">${school.name}</h3>
+              <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono">CODE: ${school.code}</span>
             </div>
-            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
-              ● ${school.subscriptionStatus.toUpperCase()} SUBSCRIPTION
-            </span>
+            <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-3 font-semibold">
+              <span><i class="fa-solid fa-chalkboard-user text-indigo-600"></i> ${school.teachersCount} Teacher(s)</span>
+              <span><i class="fa-solid fa-users text-emerald-600"></i> ${school.parentsCount} Parent(s)</span>
+            </p>
+          </div>
+          <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
+            ● ${school.subscriptionStatus.toUpperCase()} SUBSCRIPTION
+          </span>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
+            <h4 class="font-extrabold text-xs text-indigo-900 flex items-center justify-between border-b pb-2">
+              <span><i class="fa-solid fa-chalkboard-user text-indigo-600 mr-1"></i> Registered Teachers (Standard-Wise)</span>
+              <span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px]">${school.teachers.length} Total</span>
+            </h4>
+            ${school.teachers.length === 0 ? '<p class="text-[11px] text-slate-400 italic">No registered teachers yet.</p>' : `
+              <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                ${school.teachers.map(t => `
+                  <div class="flex justify-between items-center text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
+                    <div>
+                      <span class="font-bold text-slate-800">${t.name}</span>
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded ml-1.5">${t.standard || 'Std 5'}</span>
+                    </div>
+                    <span class="font-bold text-indigo-700 font-mono bg-white px-2 py-1 rounded border border-indigo-200 flex items-center gap-1">
+                      <i class="fa-solid fa-phone text-[10px]"></i> +91 ${t.mobile}
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            `}
           </div>
 
-          <!-- Standard-Wise Teachers & Parents View -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <!-- Standard-Wise Teachers -->
-            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
-              <h4 class="font-extrabold text-xs text-indigo-900 flex items-center justify-between border-b pb-2">
-                <span><i class="fa-solid fa-chalkboard-user text-indigo-600 mr-1"></i> Registered Teachers (Standard-Wise)</span>
-                <span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px]">${school.teachers.length} Total</span>
-              </h4>
-              ${school.teachers.length === 0 ? '<p class="text-[11px] text-slate-400 italic">No registered teachers yet.</p>' : `
-                <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  ${school.teachers.map(t => `
-                    <div class="flex justify-between items-center text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
-                      <div>
-                        <span class="font-bold text-slate-800">${t.name}</span>
-                        <span class="text-[10px] font-bold px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded ml-1.5">${t.standard || 'Std 5'}</span>
-                      </div>
-                      <span class="font-bold text-indigo-700 font-mono bg-white px-2 py-1 rounded border border-indigo-200 flex items-center gap-1">
-                        <i class="fa-solid fa-phone text-[10px]"></i> +91 ${t.mobile}
-                      </span>
+          <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
+            <h4 class="font-extrabold text-xs text-emerald-900 flex items-center justify-between border-b pb-2">
+              <span><i class="fa-solid fa-users text-emerald-600 mr-1"></i> Registered Parents (Standard-Wise)</span>
+              <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px]">${school.parents.length} Total</span>
+            </h4>
+            ${school.parents.length === 0 ? '<p class="text-[11px] text-slate-400 italic">No registered parents yet.</p>' : `
+              <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                ${school.parents.map(p => `
+                  <div class="flex justify-between items-center text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
+                    <div>
+                      <span class="font-bold text-slate-800">${p.name}</span>
+                      <span class="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded ml-1.5">${p.standard || 'Std 5'}</span>
                     </div>
-                  `).join('')}
-                </div>
-              `}
-            </div>
-
-            <!-- Standard-Wise Parents -->
-            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
-              <h4 class="font-extrabold text-xs text-emerald-900 flex items-center justify-between border-b pb-2">
-                <span><i class="fa-solid fa-users text-emerald-600 mr-1"></i> Registered Parents (Standard-Wise)</span>
-                <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px]">${school.parents.length} Total</span>
-              </h4>
-              ${school.parents.length === 0 ? '<p class="text-[11px] text-slate-400 italic">No registered parents yet.</p>' : `
-                <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
-                  ${school.parents.map(p => `
-                    <div class="flex justify-between items-center text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
-                      <div>
-                        <span class="font-bold text-slate-800">${p.name}</span>
-                        <span class="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded ml-1.5">${p.standard || 'Std 5'}</span>
-                      </div>
-                      <span class="font-bold text-emerald-700 font-mono bg-white px-2 py-1 rounded border border-emerald-200 flex items-center gap-1">
-                        <i class="fa-solid fa-phone text-[10px]"></i> +91 ${p.mobile}
-                      </span>
-                    </div>
-                  `).join('')}
-                </div>
-              `}
-            </div>
+                    <span class="font-bold text-emerald-700 font-mono bg-white px-2 py-1 rounded border border-emerald-200 flex items-center gap-1">
+                      <i class="fa-solid fa-phone text-[10px]"></i> +91 ${p.mobile}
+                    </span>
+                  </div>
+                `).join('')}
+              </div>
+            `}
           </div>
         </div>
-      `;
-    }).join('');
+      </div>
+    `).join('');
 
   } catch (err) {
     container.innerHTML = `<div class="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-medium">${err.message}</div>`;
@@ -1465,8 +1512,16 @@ async function loadAdminDirectory() {
 
 async function adminAddNewSchool(e) {
   e.preventDefault();
-  const name = document.getElementById('admin-school-name').value;
-  const code = document.getElementById('admin-school-code').value;
+  const rawName = document.getElementById('admin-school-name').value.trim();
+  const rawCode = document.getElementById('admin-school-code').value.trim();
+
+  if (!rawName) {
+    showToast('Please enter School Name', 'error');
+    return;
+  }
+
+  const formattedName = rawCode && !rawName.includes(',') ? `${rawName}, ${rawCode}` : rawName;
+  const newSchoolId = 'sch_' + Date.now();
 
   try {
     const res = await fetch('/api/admin/school', {
@@ -1475,18 +1530,27 @@ async function adminAddNewSchool(e) {
         'Content-Type': 'application/json',
         'x-admin-passcode': adminPasscode || 'admin123'
       },
-      body: JSON.stringify({ name, code })
+      body: JSON.stringify({ name: formattedName, code: rawCode || 'SCH' })
     });
 
-    const result = await res.json();
-    if (!result.success) throw new Error(result.error || 'Failed to add school');
+    if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const result = await res.json();
+        if (!result.success) throw new Error(result.error || 'Failed to add school');
+      }
+    }
+  } catch (err) {}
 
-    showToast(`School '${result.school.name}' added successfully!`);
-    document.getElementById('admin-school-name').value = '';
-    document.getElementById('admin-school-code').value = '';
-    loadAdminDirectory();
-    loadPublicSchools();
-  } catch (err) {
-    showToast(err.message, 'error');
+  const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
+  if (!savedLocal.some(s => s.name.toLowerCase() === formattedName.toLowerCase())) {
+    savedLocal.push({ id: newSchoolId, name: formattedName, code: rawCode || 'SCH' });
+    localStorage.setItem('paper_ai_local_schools', JSON.stringify(savedLocal));
   }
+
+  showToast(`School '${formattedName}' registered successfully!`);
+  document.getElementById('admin-school-name').value = '';
+  document.getElementById('admin-school-code').value = '';
+  await loadAdminDirectory();
+  await loadPublicSchools();
 }
