@@ -838,7 +838,15 @@ async function handleImageUpload(e) {
     let result = null;
     let errMessage = 'Failed to extract questions. Please check your Gemini API key.';
     try {
-      const savedClientKey = localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
+      const modalKeyEl = document.getElementById('input-modal-api-key');
+      const modalKeyVal = modalKeyEl ? modalKeyEl.value.trim() : '';
+      const savedClientKey = modalKeyVal || localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
+
+      if (modalKeyVal) {
+        localStorage.setItem('paper_ai_gemini_key', modalKeyVal);
+        localStorage.setItem('gemini_api_key', modalKeyVal);
+      }
+
       const response = await fetch('/api/convert-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

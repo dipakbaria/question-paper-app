@@ -78,16 +78,18 @@ app.get('/api/config-key', (req, res) => {
 
 // Helper to get available vision models for the user's API Key via REST
 async function getWorkingVisionModels(key) {
+  const sanitizedKey = (key || '').replace(/['"\s]/g, '').trim();
+  const defaultFallback = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-exp', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${key}`);
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${sanitizedKey}`);
     if (!response.ok) {
       const errText = await response.text();
       console.warn(`[AI Vision] ListModels API Error (${response.status}):`, errText);
-      return [];
+      return defaultFallback;
     }
     const data = await response.json();
     if (data.models && Array.isArray(data.models)) {
-      // Filter out TTS, Audio, Embedding, Imagen, Gemma models
       const visionEligible = data.models
         .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
         .map(m => m.name.replace(/^models\//, ''))
@@ -103,9 +105,7 @@ async function getWorkingVisionModels(key) {
       
       console.log(`[AI Vision] Vision Eligible models for key:`, visionEligible);
 
-      // Preferred priority order for fast OCR
       const preferredOrder = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash', 'gemini-2.0-flash-exp', 'gemini-1.5-pro-latest', 'gemini-1.5-pro'];
-      
       const prioritized = [];
       preferredOrder.forEach(p => {
         if (visionEligible.includes(p)) prioritized.push(p);
@@ -114,12 +114,12 @@ async function getWorkingVisionModels(key) {
         if (!prioritized.includes(m)) prioritized.push(m);
       });
 
-      return prioritized.length > 0 ? prioritized : preferredOrder;
+      return prioritized.length > 0 ? prioritized : defaultFallback;
     }
   } catch (err) {
     console.warn(`[AI Vision] ListModels fetch failed:`, err.message);
   }
-  return ['gemini-1.5-flash-latest', 'gemini-1.5-flash', 'gemini-2.0-flash-exp'];
+  return defaultFallback;
 }
 
 // Helper to call Gemini REST API directly
@@ -429,20 +429,17 @@ app.post('/api/convert-images', async (req, res) => {
   }
 
   const activeApiKey = (clientApiKey && clientApiKey.trim()) || apiKey || process.env.GEMINI_API_KEY || '';
+  const cleanKey = activeApiKey.replace(/['"\s]/g, '').trim();
 
   // API Key is strictly required for live photo OCR
-  if (!activeApiKey || activeApiKey === 'YOUR_FREE_GEMINI_API_KEY_HERE') {
+  if (!cleanKey || cleanKey === 'YOUR_FREE_GEMINI_API_KEY_HERE') {
     return res.status(400).json({
       error: 'Gemini API Key is missing! Please enter your free Gemini API Key in the upload window to scan notebook photos live.'
     });
   }
 
   try {
-    const candidateModels = await getWorkingVisionModels(activeApiKey);
-    
-    if (candidateModels.length === 0) {
-      return res.status(400).json({ error: 'Your Gemini API key is invalid or has no accessible models. Please check key in Admin tab or upload window.' });
-    }
+    const candidateModels = await getWorkingVisionModels(cleanKey);
 
     const imageParts = images.map(imgBase64 => {
       const base64Data = imgBase64.replace(/^data:image\/\w+;base64,/, '');
@@ -512,7 +509,7 @@ Return ONLY a valid JSON object matching this structure:
     for (const modelName of candidateModels.slice(0, 4)) {
       try {
         console.log(`[AI Vision REST] Attempting model: ${modelName}`);
-        responseText = await callGeminiVisionREST(modelName, activeApiKey, prompt, imageParts);
+        responseText = await callGeminiVisionREST(modelName, cleanKey, prompt, imageParts);
         if (responseText) {
           console.log(`[AI Vision REST] Successfully generated with model: ${modelName}`);
           break;
