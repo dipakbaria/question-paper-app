@@ -707,10 +707,11 @@ async function saveQuestionBank() {
 }
 
 function renderChapterList() {
-  const selectedSubject = document.getElementById('filter-subject').value;
+  const filterSubEl = document.getElementById('filter-subject');
   const chapterSelect = document.getElementById('filter-chapter');
   
-  if (!chapterSelect) return;
+  if (!filterSubEl || !chapterSelect) return;
+  const selectedSubject = filterSubEl.value;
   chapterSelect.innerHTML = '<option value="ALL">All Chapters</option>';
   
   if (dbData.chapters) {
@@ -729,10 +730,12 @@ function renderChapterList() {
 
 function renderQuestionBankList() {
   const container = document.getElementById('question-bank-container');
-  if (!container) return;
+  const filterSubEl = document.getElementById('filter-subject');
+  const filterChapEl = document.getElementById('filter-chapter');
+  if (!container || !filterSubEl || !filterChapEl) return;
 
-  const selectedSubject = document.getElementById('filter-subject').value;
-  const selectedChapterId = document.getElementById('filter-chapter').value;
+  const selectedSubject = filterSubEl.value;
+  const selectedChapterId = filterChapEl.value;
 
   let allQuestions = [];
   if (dbData.chapters) {
