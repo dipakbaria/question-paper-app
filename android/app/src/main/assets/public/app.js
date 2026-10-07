@@ -609,10 +609,20 @@ function showToast(msg, type = 'success') {
   }, 3500);
 }
 
+function saveModalApiKey(val) {
+  if (val && val.trim()) {
+    const key = val.trim();
+    localStorage.setItem('paper_ai_gemini_key', key);
+    localStorage.setItem('gemini_api_key', key);
+    showToast('Saved Gemini API Key for live AI photo extraction!', 'success');
+  }
+}
+
 function openWorkModal(workType) {
   const titleEl = document.getElementById('upload-modal-title');
   const workTypeInput = document.getElementById('upload-work-type');
   const dateInput = document.getElementById('upload-date');
+  const apiKeyInput = document.getElementById('input-modal-api-key');
 
   if (workTypeInput) workTypeInput.value = workType;
   if (titleEl) {
@@ -623,6 +633,11 @@ function openWorkModal(workType) {
   if (dateInput && !dateInput.value) {
     const today = new Date().toISOString().split('T')[0];
     dateInput.value = today;
+  }
+
+  if (apiKeyInput) {
+    const saved = localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
+    apiKeyInput.value = saved;
   }
 
   populateAllSubjectDropdowns();
@@ -1288,9 +1303,10 @@ function renderA4PaperDOM() {
       let sectionIdx = 1;
       for (const [heading, questions] of Object.entries(currentPaper.groupedHeadings)) {
         if (questions && questions.length > 0) {
+          const cleanHeading = heading.replace(/^[\*\d\.\)\s]+/, '').replace(/[\.:]+$/, '').trim();
           contentHtml += `
             <div class="space-y-3 pt-2">
-              <h4 class="font-extrabold text-sm text-slate-900">${sectionIdx}. ${heading}</h4>
+              <h4 class="font-extrabold text-sm text-slate-900">${sectionIdx}. ${cleanHeading}.</h4>
               <div class="space-y-3 pl-3">
                 ${questions.map((q, qIdx) => {
                   let qText = q.question || q.text || '';
