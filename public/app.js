@@ -855,6 +855,109 @@ function isSimilarToSeen(qText, existingQSet) {
   return existingQSet.has(cleanQ);
 }
 
+async function callGeminiVisionDirectClient(key, base64Images, subject, chapterNo, chapterName) {
+  const cleanKey = (key || '').replace(/['"\s]/g, '').trim();
+  if (!cleanKey) throw new Error('Gemini API Key is missing. Please enter your free Gemini API key.');
+
+  const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-exp', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+
+  const prompt = `
+You are an expert student notebook OCR & Classwork Question-Answer Extractor.
+You have been provided with ${base64Images.length} notebook image(s) for Subject: "${subject || 'General'}", Chapter ${chapterNo || '1'}: "${chapterName || 'Chapter'}".
+
+STRICT HANDWRITTEN NOTEBOOK EXTRACTION RULES:
+1. Inspect ALL ${base64Images.length} attached notebook pages thoroughly from top to bottom. Read actual handwritten text on the pages.
+2. Extract EVERY section heading as written in the notebook (e.g. "* Answer the following question", "* Fill in The Blanks", "* Write True or False :", "* Define").
+3. For Short Answer Questions (e.g. "Q-1] Name the two birds with climbing feet?"):
+   - Extract question text into "question" (e.g. "Name the two birds with climbing feet?").
+   - Extract written answer text into "answer" (e.g. "The two birds with climbing feet are woodpecker and parrots.").
+4. CRITICAL FOR "Define" OR "Definitions" SECTION HEADINGS:
+   - Extract the specific word or term being defined into "question" (e.g., question: "Deforestation", question: "Environment").
+   - Extract the complete definition text into "answer".
+5. For Fill in the Blanks:
+   - Extract statement into "question". Wrap the filled answer word in double underscores: "A large area of land that is densely covered with bushes, trees and other vegetation is known as a __Forest__."
+   - Extract filled answer word into "answer" (e.g. "Forest").
+6. For True or False:
+   - Extract statement into "question" and result into "answer" (e.g. "Sacred groves are places where cutting of trees is allowed.", "answer": "False").
+7. Include every single question and answer in order as written on the notebook pages.
+
+Return ONLY a valid JSON object matching this structure:
+{
+  "chapterName": "${chapterName || 'Chapter'}",
+  "chapterNo": "${chapterNo || '1'}",
+  "subject": "${subject || 'General'}",
+  "sectionQuestions": [
+    {
+      "heading": "Answer the following question",
+      "type": "short_answer",
+      "items": [
+        { "question": "Name the two birds with climbing feet?", "answer": "The two birds with climbing feet are woodpecker and parrots." }
+      ]
+    },
+    {
+      "heading": "Fill in the Blanks",
+      "type": "fill_in_blanks",
+      "items": [
+        { "question": "A large area of land that is densely covered with bushes, trees and other vegetation is known as a __Forest__.", "answer": "Forest" }
+      ]
+    },
+    {
+      "heading": "Write True or False",
+      "type": "true_false",
+      "items": [
+        { "question": "Sacred groves are places where cutting of trees is allowed.", "answer": "False" }
+      ]
+    }
+  ]
+}
+`;
+
+  const parts = [{ text: prompt }];
+  base64Images.forEach((imgBase64, idx) => {
+    const rawData = imgBase64.replace(/^data:image\/\w+;base64,/, '');
+    parts.push({ text: `\n=== ATTACHED PHOTO PAGE ${idx + 1} OF ${base64Images.length} ===` });
+    parts.push({
+      inline_data: {
+        mime_type: 'image/jpeg',
+        data: rawData
+      }
+    });
+  });
+
+  let lastError = null;
+
+  for (const modelName of candidateModels) {
+    try {
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${cleanKey}`;
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts }],
+          generationConfig: { maxOutputTokens: 8192, temperature: 0.0 }
+        })
+      });
+
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => ({}));
+        const msg = errJson.error ? errJson.error.message : `HTTP ${res.status}`;
+        throw new Error(msg);
+      }
+
+      const data = await res.json();
+      if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) {
+        const text = data.candidates[0].content.parts.map(p => p.text).join('');
+        const cleanJsonStr = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        return JSON.parse(cleanJsonStr);
+      }
+    } catch (err) {
+      lastError = err;
+    }
+  }
+
+  throw lastError || new Error('Failed to process image with Gemini API.');
+}
+
 async function handleImageUpload(e) {
   e.preventDefault();
 
@@ -885,18 +988,20 @@ async function handleImageUpload(e) {
     const base64Promises = filesArr.map(file => compressImage(file, 1600, 0.85));
     const base64Images = await Promise.all(base64Promises);
 
+    const modalKeyEl = document.getElementById('input-modal-api-key');
+    const modalKeyVal = modalKeyEl ? modalKeyEl.value.trim() : '';
+    const savedClientKey = modalKeyVal || localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
+
+    if (modalKeyVal) {
+      localStorage.setItem('paper_ai_gemini_key', modalKeyVal);
+      localStorage.setItem('gemini_api_key', modalKeyVal);
+    }
+
     let result = null;
     let errMessage = 'Failed to extract questions. Please check your Gemini API key.';
+
+    // 1. Try server backend endpoint
     try {
-      const modalKeyEl = document.getElementById('input-modal-api-key');
-      const modalKeyVal = modalKeyEl ? modalKeyEl.value.trim() : '';
-      const savedClientKey = modalKeyVal || localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
-
-      if (modalKeyVal) {
-        localStorage.setItem('paper_ai_gemini_key', modalKeyVal);
-        localStorage.setItem('gemini_api_key', modalKeyVal);
-      }
-
       const response = await fetch('/api/convert-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -912,7 +1017,23 @@ async function handleImageUpload(e) {
         errMessage = result.error;
       }
     } catch (netErr) {
-      errMessage = netErr.message || 'Network error while contacting AI vision server.';
+      result = null;
+    }
+
+    // 2. Fallback to Direct Google Gemini API HTTPS call if server endpoint is unreachable (e.g. mobile APK webview)
+    if ((!result || !result.success || !result.extractedData) && savedClientKey) {
+      try {
+        console.log('[AI Vision] Calling Google Gemini API directly from mobile client...');
+        const directExtracted = await callGeminiVisionDirectClient(savedClientKey, base64Images, subject, chapterNo, chapterName);
+        if (directExtracted && directExtracted.sectionQuestions) {
+          result = {
+            success: true,
+            extractedData: directExtracted
+          };
+        }
+      } catch (directErr) {
+        errMessage = directErr.message || 'Direct Gemini API call failed.';
+      }
     }
 
     if (!result || !result.success || !result.extractedData) {
