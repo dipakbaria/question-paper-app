@@ -2,7 +2,7 @@
 let dbData = { chapters: [], papers: [] };
 let currentPaper = null;
 let currentRole = 'teacher';
-let currentUser = null; // { id, name, mobile, role, schoolId, schoolName, cityName }
+let currentUser = null; // { id, name, mobile, role, schoolId, schoolName, cityName, standard }
 let adminPasscode = '';
 let sharedFeed = [];
 
@@ -43,9 +43,7 @@ function loadMasterSubjects() {
     const saved = localStorage.getItem('paper_ai_master_subjects');
     if (saved) {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        masterSubjects = parsed;
-      }
+      if (Array.isArray(parsed) && parsed.length > 0) masterSubjects = parsed;
     }
   } catch (e) {}
   populateAllSubjectDropdowns();
@@ -58,7 +56,6 @@ function saveMasterSubjects() {
   populateAllSubjectDropdowns();
 }
 
-// Populate all subject selects across UI
 function populateAllSubjectDropdowns() {
   const uploadSelect = document.getElementById('upload-subject');
   const examSelect = document.getElementById('exam-subject-select');
@@ -84,7 +81,6 @@ function populateAllSubjectDropdowns() {
   }
 }
 
-// Custom Subject Handler
 function onUploadSubjectChange(selectEl) {
   const container = document.getElementById('container-add-subject');
   if (selectEl.value === 'ADD_NEW') {
@@ -117,7 +113,6 @@ function addNewCustomSubject() {
   if (input) input.value = '';
 }
 
-// Load / Save Paper Headings
 function loadPaperHeadings() {
   try {
     const saved = localStorage.getItem('paper_ai_paper_headings');
@@ -141,7 +136,6 @@ function updatePaperHeadingCountLabel() {
   if (label) label.innerText = `${paperTypeHeadings.length} Headings Configured`;
 }
 
-// Enforce Web-Only Admin Rules (STRICTLY HIDE Admin on Mobile Android/iOS)
 function enforcePlatformSecurityRules() {
   if (isNativeMobileDevice()) {
     const adminTab = document.getElementById('tab-admin');
@@ -151,7 +145,6 @@ function enforcePlatformSecurityRules() {
   }
 }
 
-// Check saved user session
 function checkAuthSession() {
   try {
     const savedUser = localStorage.getItem('paper_ai_user');
@@ -185,11 +178,32 @@ function updateUserInfoBar() {
   }
 }
 
-// Open Login Modal & Populate Schools
 async function openLoginModal() {
   await loadPublicSchools();
-  onLoginRoleChange();
+  switchAuthTab('login');
   openModal('modal-login');
+}
+
+// Switch between Login and Register tabs in Auth Modal
+function switchAuthTab(tab) {
+  const loginForm = document.getElementById('login-form');
+  const registerForm = document.getElementById('register-form');
+  const tabLoginBtn = document.getElementById('auth-tab-login');
+  const tabRegisterBtn = document.getElementById('auth-tab-register');
+
+  if (tab === 'register') {
+    if (loginForm) loginForm.classList.add('hidden');
+    if (registerForm) registerForm.classList.remove('hidden');
+    if (tabLoginBtn) tabLoginBtn.className = 'flex-1 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition font-bold';
+    if (tabRegisterBtn) tabRegisterBtn.className = 'flex-1 py-2 rounded-lg bg-emerald-600 text-white shadow transition font-bold';
+    onRegisterRoleChange();
+  } else {
+    if (loginForm) loginForm.classList.remove('hidden');
+    if (registerForm) registerForm.classList.add('hidden');
+    if (tabLoginBtn) tabLoginBtn.className = 'flex-1 py-2 rounded-lg bg-indigo-600 text-white shadow transition font-bold';
+    if (tabRegisterBtn) tabRegisterBtn.className = 'flex-1 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition font-bold';
+    onLoginRoleChange();
+  }
 }
 
 const defaultSchoolsList = [
@@ -199,9 +213,9 @@ const defaultSchoolsList = [
 ];
 
 async function loadPublicSchools() {
-  const select = document.getElementById('login-school-id');
-  if (!select) return;
-
+  const loginSelect = document.getElementById('login-school-id');
+  const regSelect = document.getElementById('reg-school-id');
+  
   let schools = [...defaultSchoolsList];
 
   try {
@@ -210,30 +224,34 @@ async function loadPublicSchools() {
       const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
         const data = await res.json();
-        if (data && Array.isArray(data.schools) && data.schools.length > 0) {
-          schools = data.schools;
-        }
+        if (data && Array.isArray(data.schools) && data.schools.length > 0) schools = data.schools;
       }
     }
   } catch (err) {}
 
-  select.innerHTML = '';
-  schools.forEach(s => {
-    const opt = document.createElement('option');
-    opt.value = s.id;
-    opt.innerText = `${s.name} (Code: ${s.code || 'SCH'})`;
-    select.appendChild(opt);
-  });
-
-  try {
-    const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
-    savedLocal.forEach(s => {
+  const populateSelect = (sel) => {
+    if (!sel) return;
+    sel.innerHTML = '';
+    schools.forEach(s => {
       const opt = document.createElement('option');
       opt.value = s.id;
       opt.innerText = `${s.name} (Code: ${s.code || 'SCH'})`;
-      select.appendChild(opt);
+      sel.appendChild(opt);
     });
-  } catch (e) {}
+
+    try {
+      const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
+      savedLocal.forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.innerText = `${s.name} (Code: ${s.code || 'SCH'})`;
+        sel.appendChild(opt);
+      });
+    } catch (e) {}
+  };
+
+  populateSelect(loginSelect);
+  populateSelect(regSelect);
 }
 
 function toggleAddSchoolFields() {
@@ -259,16 +277,9 @@ function addNewSchoolWithLocality() {
   }
 
   const formattedSchoolName = `${rawName}, ${rawLocality}`;
-  const select = document.getElementById('login-school-id');
+  const select = document.getElementById('reg-school-id') || document.getElementById('login-school-id');
+  
   if (select) {
-    for (let i = 0; i < select.options.length; i++) {
-      const existingText = select.options[i].text.toLowerCase();
-      if (existingText.includes(formattedSchoolName.toLowerCase())) {
-        showToast(`School '${formattedSchoolName}' already exists!`, 'error');
-        return;
-      }
-    }
-
     const newSchoolId = 'sch_' + Date.now();
     const newCode = rawLocality.substr(0, 3).toUpperCase() + Math.floor(10 + Math.random() * 90);
 
@@ -288,52 +299,112 @@ function addNewSchoolWithLocality() {
       body: JSON.stringify({ name: formattedSchoolName, code: newCode })
     }).catch(() => {});
 
-    showToast(`Added '${formattedSchoolName}' to school directory!`);
+    showToast(`Added '${formattedSchoolName}'!`);
     toggleAddSchoolFields();
     if (nameInput) nameInput.value = '';
     if (localityInput) localityInput.value = '';
   }
 }
 
-// Dynamic Login Role Change (1.1 Teacher Name, 1.2 Student Name, 1.3 Principal Name)
+function onRegisterRoleChange() {
+  const roleRadios = document.getElementsByName('reg-role');
+  let selectedRole = 'teacher';
+  for (const r of roleRadios) {
+    if (r.checked) selectedRole = r.value;
+  }
+
+  const nameLabel = document.getElementById('label-reg-name-input');
+  if (nameLabel) {
+    if (selectedRole === 'teacher') nameLabel.innerText = 'Teacher Name';
+    else if (selectedRole === 'parent') nameLabel.innerText = 'Student Name';
+  }
+}
+
 function onLoginRoleChange() {
   const roleRadios = document.getElementsByName('login-role');
   let selectedRole = 'teacher';
   for (const r of roleRadios) {
     if (r.checked) selectedRole = r.value;
   }
+}
 
-  const schoolField = document.getElementById('field-school-select');
-  const nameField = document.getElementById('field-user-name');
-  const nameLabel = document.getElementById('label-user-name-input');
-  const cityField = document.getElementById('field-user-city');
-  const mobileField = document.getElementById('field-user-mobile');
-  const adminField = document.getElementById('field-admin-passcode');
+// Handle User Registration Submit (Password & Confirm Password Validation)
+async function handleUserRegisterSubmit(e) {
+  e.preventDefault();
 
-  if (nameLabel) {
-    if (selectedRole === 'teacher') nameLabel.innerText = 'Teacher Name';
-    else if (selectedRole === 'parent') nameLabel.innerText = 'Student Name';
-    else if (selectedRole === 'admin') nameLabel.innerText = 'Principal Name';
+  const roleRadios = document.getElementsByName('reg-role');
+  let role = 'teacher';
+  for (const r of roleRadios) {
+    if (r.checked) role = r.value;
   }
 
-  if (selectedRole === 'admin') {
-    if (schoolField) schoolField.classList.add('hidden');
-    if (nameField) nameField.classList.add('hidden');
-    if (cityField) cityField.classList.add('hidden');
-    if (mobileField) mobileField.classList.add('hidden');
-    if (adminField) adminField.classList.remove('hidden');
-  } else {
-    if (schoolField) schoolField.classList.remove('hidden');
-    if (nameField) nameField.classList.remove('hidden');
-    if (cityField) cityField.classList.remove('hidden');
-    if (mobileField) mobileField.classList.remove('hidden');
-    if (adminField) adminField.classList.add('hidden');
+  const std = document.getElementById('reg-user-std').value;
+  const name = document.getElementById('reg-user-name').value.trim();
+  const city = document.getElementById('reg-user-city').value.trim();
+  const mobile = document.getElementById('reg-user-mobile').value.trim();
+  const selectSchool = document.getElementById('reg-school-id');
+  const schoolId = selectSchool ? selectSchool.value : 'sch_dps01';
+
+  const pass = document.getElementById('reg-user-pass').value.trim();
+  const passConfirm = document.getElementById('reg-user-pass-confirm').value.trim();
+
+  if (!name || !mobile || !city) {
+    showToast('Please fill all registration fields!', 'error');
+    return;
+  }
+
+  if (!pass || pass.length < 3) {
+    showToast('Password must be at least 3 characters long', 'error');
+    return;
+  }
+
+  // Password & Confirm Password Matching Check
+  if (pass !== passConfirm) {
+    showToast('Password and Confirm Password do not match!', 'error');
+    return;
+  }
+
+  const btn = document.getElementById('btn-submit-register');
+  btn.disabled = true;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Registering Account...`;
+
+  try {
+    const response = await fetch('/api/auth/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name,
+        mobile,
+        role,
+        standard: std,
+        schoolId,
+        cityName: city,
+        password: pass
+      })
+    });
+
+    const result = await response.json();
+    if (!response.ok || !result.success) {
+      throw new Error(result.error || 'Registration failed');
+    }
+
+    showToast(result.message || 'Registration successful! Please login.');
+    switchAuthTab('login');
+    const loginMobile = document.getElementById('login-input-mobile');
+    if (loginMobile) loginMobile.value = mobile;
+
+  } catch (err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `<i class="fa-solid fa-user-plus"></i> Create Account & Register`;
   }
 }
 
-// Handle Login Form Submit
-async function handleMobileLogin(e) {
+// Handle User Login Submit
+async function handleUserLoginSubmit(e) {
   e.preventDefault();
+
   const roleRadios = document.getElementsByName('login-role');
   let role = 'teacher';
   for (const r of roleRadios) {
@@ -345,24 +416,12 @@ async function handleMobileLogin(e) {
     return;
   }
 
-  const mobile = document.getElementById('login-user-mobile').value.trim();
-  const name = document.getElementById('login-user-name').value.trim();
-  const city = document.getElementById('login-user-city').value.trim();
-  const selectSchool = document.getElementById('login-school-id');
-  const schoolId = selectSchool ? selectSchool.value : 'sch_dps01';
-  const schoolText = (selectSchool && selectSchool.options[selectSchool.selectedIndex])
-    ? selectSchool.options[selectSchool.selectedIndex].text.split(' (Code:')[0]
-    : 'Delhi Public School';
-  const pass = document.getElementById('login-admin-passcode').value.trim();
-
-  if (role !== 'admin' && (!name || !mobile)) {
-    showToast('Please enter your Name and Mobile Number!', 'error');
-    return;
-  }
+  const mobileOrName = document.getElementById('login-input-mobile').value.trim();
+  const password = document.getElementById('login-input-password').value.trim();
 
   const btn = document.getElementById('btn-submit-login');
   btn.disabled = true;
-  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Authenticating...`;
+  btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Signing in...`;
 
   try {
     let authUser = null;
@@ -372,12 +431,11 @@ async function handleMobileLogin(e) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          mobile,
-          name,
+          mobile: mobileOrName,
+          name: mobileOrName,
+          password,
           role,
-          schoolId,
-          cityName: city,
-          adminPasscode: pass
+          adminPasscode: password
         })
       });
 
@@ -385,50 +443,39 @@ async function handleMobileLogin(e) {
         const contentType = response.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const result = await response.json();
-          if (result.success) {
-            authUser = result.user;
-          }
+          if (result.success) authUser = result.user;
+          else throw new Error(result.error || 'Invalid credentials');
         }
+      } else {
+        const errJson = await response.json().catch(() => ({}));
+        throw new Error(errJson.error || 'Login failed');
       }
-    } catch (netErr) {}
+    } catch (netErr) {
+      if (netErr.message && !netErr.message.includes('fetch')) throw netErr;
+    }
 
     if (!authUser) {
-      if (role === 'admin') {
-        if (pass !== 'admin123') {
-          throw new Error('Invalid Super Admin passcode! Default passcode is admin123');
-        }
-        authUser = {
-          id: 'usr_admin',
-          name: name || 'Principal',
-          mobile: '9999999999',
-          role: 'admin',
-          schoolId: 'sch_dps01',
-          schoolName: 'System Administration',
-          cityName: city || 'City'
-        };
-      } else {
-        authUser = {
-          id: 'usr_' + (mobile || Date.now()),
-          name: name || 'User',
-          mobile: mobile || '9876543210',
-          role: role,
-          schoolId: schoolId || 'sch_dps01',
-          schoolName: schoolText || 'Delhi Public School',
-          cityName: city || ''
-        };
-      }
+      authUser = {
+        id: 'usr_' + (mobileOrName || Date.now()),
+        name: mobileOrName || 'User',
+        mobile: mobileOrName || '9876543210',
+        role: role,
+        standard: 'Std 5',
+        schoolId: 'sch_dps01',
+        schoolName: 'Delhi Public School'
+      };
     }
 
     currentUser = authUser;
     if (role === 'admin') {
-      adminPasscode = pass;
-      localStorage.setItem('paper_ai_admin_pass', pass);
+      adminPasscode = password || 'admin123';
+      localStorage.setItem('paper_ai_admin_pass', adminPasscode);
     }
 
     localStorage.setItem('paper_ai_user', JSON.stringify(currentUser));
     updateUserInfoBar();
     closeModal('modal-login');
-    showToast(`Welcome ${currentUser.name}! Signed in to ${currentUser.schoolName}`);
+    showToast(`Welcome ${currentUser.name}! Signed in successfully.`);
     
     switchRole(currentUser.role);
     if (currentUser.role === 'admin') loadAdminDirectory();
@@ -437,11 +484,11 @@ async function handleMobileLogin(e) {
     showToast(err.message, 'error');
   } finally {
     btn.disabled = false;
-    btn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Continue to App`;
+    btn.innerHTML = `<i class="fa-solid fa-right-to-bracket"></i> Sign In To Studio`;
   }
 }
 
-// Role Switcher & Permissions Enforcement (Requirement 5)
+// Role Switcher & Permissions Enforcement
 function switchRole(role) {
   if (role === 'admin' && isNativeMobileDevice()) {
     showToast('Super Admin Portal is available strictly on Web Browser only!', 'error');
@@ -458,11 +505,11 @@ function switchRole(role) {
   if (tabParent) tabParent.className = role === 'parent' ? 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 bg-white text-indigo-900 shadow-md font-bold' : 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
   if (tabAdmin) tabAdmin.className = role === 'admin' ? 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 bg-white text-indigo-900 shadow-md font-bold' : 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
 
-  document.getElementById('role-teacher-view').classList.toggle('hidden', role !== 'teacher');
-  document.getElementById('role-parent-view').classList.toggle('hidden', role !== 'parent');
+  // KEEP STUDIO VIEWS HIDDEN INITIALLY UNTIL A CARD IS CLICKED!
+  document.getElementById('role-teacher-view').classList.add('hidden');
+  document.getElementById('role-parent-view').classList.add('hidden');
   document.getElementById('role-admin-view').classList.toggle('hidden', role !== 'admin');
 
-  // Lock Badge enforcement for Exam Paper card
   const badgeLock = document.getElementById('badge-exam-locked');
   const examSubtitle = document.getElementById('card-exam-subtitle');
   const examIcon = document.getElementById('card-exam-icon');
@@ -474,7 +521,6 @@ function switchRole(role) {
     if (examSubtitle) examSubtitle.innerText = 'Exam paper generator (Locked)';
     if (examIcon) examIcon.className = 'fa-solid fa-lock text-amber-300';
     if (examActionLabel) examActionLabel.innerText = 'Locked for Parents';
-    renderParentFeed();
   } else {
     if (badgeLock) badgeLock.classList.add('hidden');
     if (badgeLock) badgeLock.classList.remove('flex');
@@ -485,7 +531,6 @@ function switchRole(role) {
   }
 }
 
-// Modal Handlers
 function openModal(id) {
   document.getElementById(id).classList.remove('hidden');
 }
@@ -494,7 +539,6 @@ function closeModal(id) {
   document.getElementById(id).classList.add('hidden');
 }
 
-// Toast Notifications
 function showToast(msg, type = 'success') {
   const container = document.getElementById('toast-container');
   const toast = document.createElement('div');
@@ -510,7 +554,6 @@ function showToast(msg, type = 'success') {
   }, 3500);
 }
 
-// Open Upload Modal for Homework or Classwork (Requirements 2.1 & 2.3)
 function openWorkModal(workType) {
   const titleEl = document.getElementById('upload-modal-title');
   const workTypeInput = document.getElementById('upload-work-type');
@@ -522,7 +565,6 @@ function openWorkModal(workType) {
     else titleEl.innerHTML = `<i class="fa-solid fa-chalkboard-user text-blue-600"></i> Upload Class Work Photos`;
   }
 
-  // Set default today date YYYY-MM-DD
   if (dateInput && !dateInput.value) {
     const today = new Date().toISOString().split('T')[0];
     dateInput.value = today;
@@ -532,7 +574,6 @@ function openWorkModal(workType) {
   openModal('modal-upload');
 }
 
-// Camera & File Count UI Helpers
 function updateFileCountLabel() {
   const fileInput = document.getElementById('upload-files');
   const cameraInput = document.getElementById('camera-files');
@@ -557,7 +598,6 @@ function addCameraPhotoToUpload(input) {
   }
 }
 
-// Fetch Question Bank from Server / LocalStorage
 async function loadQuestionBank() {
   try {
     const res = await fetch('/api/question-bank');
@@ -655,7 +695,6 @@ function renderQuestionBankList() {
   `).join('');
 }
 
-// Compress image helper for sharp multi-page OCR
 function compressImage(file, maxWidth = 1600, quality = 0.85) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -693,7 +732,6 @@ function isSimilarToSeen(qText, existingQSet) {
   return existingQSet.has(cleanQ);
 }
 
-// Handle Image Upload & AI Extraction (Requirements 2.1 - 2.4)
 async function handleImageUpload(e) {
   e.preventDefault();
 
@@ -843,7 +881,6 @@ async function handleImageUpload(e) {
     showToast(`Extracted ${addedCount} questions into ${stdVal} ${subject} Ch ${chapterNo}!`);
     await loadQuestionBank();
 
-    // Render A4 Paper Preview immediately with extracted questions (Requirements 2.2 & 2.4)
     currentPaper = {
       title: `${workType.toUpperCase()} - ${stdVal} ${subject}`,
       schoolName: currentUser ? currentUser.schoolName : 'School Name',
@@ -855,18 +892,19 @@ async function handleImageUpload(e) {
       groupedHeadings: groupQuestionsByHeading(existingChapter.questions)
     };
 
+    document.getElementById('role-teacher-view').classList.remove('hidden');
     renderA4PaperDOM();
-    showDashboardHome();
+    const studio = document.getElementById('role-teacher-view');
+    if (studio) studio.scrollIntoView({ behavior: 'smooth' });
 
   } catch (err) {
     showToast(err.message, 'error');
-  } fontFinally: {
+  } finally {
     btnSubmit.disabled = false;
     btnSubmit.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Process & Extract Questions`;
   }
 }
 
-// Group questions by Heading
 function groupQuestionsByHeading(questions) {
   const grouped = {};
   if (!questions) return grouped;
@@ -878,21 +916,20 @@ function groupQuestionsByHeading(questions) {
   return grouped;
 }
 
-// Scroll / Show Teacher Dashboard
 function showDashboardHome() {
-  switchRole('teacher');
-  const view = document.getElementById('role-teacher-view');
-  if (view) view.scrollIntoView({ behavior: 'smooth' });
+  document.getElementById('role-teacher-view').classList.add('hidden');
+  document.getElementById('role-parent-view').classList.add('hidden');
+  document.getElementById('role-admin-view').classList.add('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
-// EXAM PAPER CARD & STUDIO HANDLERS (Requirement 3 & 5)
 function handleExamPaperCardClick() {
   if (currentRole === 'parent') {
     showToast('Exam Paper is locked for Students/Parents. Teacher access only.', 'error');
     return;
   }
 
-  switchRole('teacher');
+  document.getElementById('role-teacher-view').classList.remove('hidden');
   const studio = document.getElementById('section-exam-studio');
   if (studio) studio.scrollIntoView({ behavior: 'smooth' });
   onExamConfigChange();
@@ -979,12 +1016,10 @@ function setExamMode(mode) {
   }
 }
 
-// Generate Auto Exam Paper (Requirement 3 - with 🔄 Generate Again button shuffler)
 function generateAutoExamPaper(isShuffle = false) {
   const stdVal = document.getElementById('exam-std-select').value;
   const subVal = document.getElementById('exam-subject-select').value;
 
-  // Gather matching questions from DB
   let matchingQuestions = [];
   if (dbData.chapters) {
     dbData.chapters.forEach(ch => {
@@ -1003,22 +1038,15 @@ function generateAutoExamPaper(isShuffle = false) {
     return;
   }
 
-  // If shuffle requested, randomize array
   if (isShuffle) {
     matchingQuestions.sort(() => Math.random() - 0.5);
   }
 
-  // Auto-allocate questions under paperTypeHeadings
   const grouped = {};
   paperTypeHeadings.forEach((heading, hIdx) => {
-    // Pick 3-4 questions per heading
     const selected = matchingQuestions.slice(hIdx * 3, (hIdx + 1) * 3);
-    if (selected.length > 0) {
-      grouped[heading] = selected;
-    } else {
-      // Fallback: pick any questions
-      grouped[heading] = matchingQuestions.slice(0, 3);
-    }
+    if (selected.length > 0) grouped[heading] = selected;
+    else grouped[heading] = matchingQuestions.slice(0, 3);
   });
 
   currentPaper = {
@@ -1039,7 +1067,6 @@ function toggleManualChecklist() {
   if (panel) panel.classList.toggle('hidden');
 }
 
-// Render Manual Question Checklist
 function renderManualChecklistContainer() {
   const container = document.getElementById('manual-headings-checklist-container');
   if (!container) return;
@@ -1132,7 +1159,6 @@ function buildManualExamPaper() {
   renderA4PaperDOM();
 }
 
-// Practice Paper Studio (Requirement 4)
 function openPracticePaperStudio() {
   const stdVal = currentUser ? (currentUser.standard || 'Std 5') : 'Std 5';
   const subVal = masterSubjects[0] || 'Maths';
@@ -1160,12 +1186,11 @@ function openPracticePaperStudio() {
     groupedHeadings: groupQuestionsByHeading(practiceQuestions.slice(0, 10))
   };
 
-  switchRole('teacher');
+  document.getElementById('role-teacher-view').classList.remove('hidden');
   renderA4PaperDOM();
   showToast('Generated Practice Paper from accumulated Homework & Classwork!');
 }
 
-// Render Printable A4 Paper DOM
 function renderA4PaperDOM() {
   const paperSheet = document.getElementById('a4-paper-sheet');
   if (!paperSheet || !currentPaper) return;
@@ -1177,7 +1202,6 @@ function renderA4PaperDOM() {
   const sub = currentPaper.subject || 'General';
 
   let contentHtml = `
-    <!-- Standard Official Header -->
     <div class="text-center border-b-2 border-slate-900 pb-3 space-y-1">
       <h2 class="text-xl font-black uppercase tracking-wider text-slate-900">${school}</h2>
       <p class="text-xs font-bold text-slate-600">${city} | Academic Term 2026</p>
@@ -1225,7 +1249,6 @@ function renderA4PaperDOM() {
   paperSheet.innerHTML = contentHtml;
 }
 
-// Export to PDF (html2pdf)
 function exportToPDF() {
   const element = document.getElementById('a4-paper-sheet');
   const opt = {
@@ -1239,7 +1262,6 @@ function exportToPDF() {
   showToast('Downloading A4 PDF...');
 }
 
-// Export to DOCX (docx.js)
 function exportToDOCX() {
   if (!docx) {
     showToast('DOCX exporter loading...', 'error');
@@ -1336,18 +1358,18 @@ function loadSharedPaper(feedId) {
   const item = sharedFeed.find(f => f.id === feedId);
   if (item) {
     currentPaper = item.paper;
-    switchRole('teacher');
+    document.getElementById('role-teacher-view').classList.remove('hidden');
     renderA4PaperDOM();
     showToast('Loaded paper into A4 preview');
   }
 }
 
-// WEB-ONLY SUPER ADMIN DIRECTORY
+// WEB-ONLY HEAD ADMIN DIRECTORY (Standard-Wise Listing)
 async function loadAdminDirectory() {
   const container = document.getElementById('admin-directory-container');
   if (!container) return;
 
-  container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs"><i class="fa-solid fa-spinner fa-spin"></i> Loading Directory...</div>`;
+  container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs"><i class="fa-solid fa-spinner fa-spin"></i> Loading Standard-Wise Directory...</div>`;
 
   try {
     const res = await fetch('/api/admin/directory', {
@@ -1362,66 +1384,79 @@ async function loadAdminDirectory() {
       return;
     }
 
-    container.innerHTML = data.schools.map(school => `
-      <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 pb-3">
-          <div>
-            <div class="flex items-center gap-2">
-              <h3 class="font-extrabold text-slate-900 text-base">${school.name}</h3>
-              <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono">CODE: ${school.code}</span>
+    container.innerHTML = data.schools.map(school => {
+      // Group teachers and parents by standard
+      const standards = ['Std 1', 'Std 2', 'Std 3', 'Std 4', 'Std 5', 'Std 6', 'Std 7', 'Std 8', 'Std 9', 'Std 10', 'Std 11', 'Std 12'];
+      
+      return `
+        <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-4 shadow-sm">
+          <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 pb-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="font-extrabold text-slate-900 text-base">${school.name}</h3>
+                <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded font-mono">CODE: ${school.code}</span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-3 font-semibold">
+                <span><i class="fa-solid fa-chalkboard-user text-indigo-600"></i> ${school.teachersCount} Teacher(s)</span>
+                <span><i class="fa-solid fa-users text-emerald-600"></i> ${school.parentsCount} Parent(s)</span>
+              </p>
             </div>
-            <p class="text-xs text-slate-500 mt-0.5 flex items-center gap-3">
-              <span><i class="fa-solid fa-chalkboard-user text-indigo-600"></i> ${school.teachersCount} Teacher(s)</span>
-              <span><i class="fa-solid fa-users text-emerald-600"></i> ${school.parentsCount} Parent(s)</span>
-            </p>
-          </div>
-
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-semibold ${school.subscriptionStatus === 'active' ? 'text-emerald-700' : 'text-rose-700'}">
+            <span class="text-xs font-bold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full border border-emerald-200">
               ● ${school.subscriptionStatus.toUpperCase()} SUBSCRIPTION
             </span>
           </div>
-        </div>
 
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-          <div class="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
-            <h4 class="font-bold text-xs text-indigo-900 flex items-center gap-1.5 border-b pb-1">
-              <i class="fa-solid fa-chalkboard-user text-indigo-600"></i> Teachers List (${school.teachers.length})
-            </h4>
-            ${school.teachers.length === 0 ? '<p class="text-[11px] text-slate-400 italic">No registered teachers yet.</p>' : `
-              <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                ${school.teachers.map(t => `
-                  <div class="flex justify-between items-center text-xs p-1.5 bg-slate-50 rounded border border-slate-100">
-                    <span class="font-semibold text-slate-800">${t.name}</span>
-                    <span class="font-bold text-indigo-700 font-mono bg-indigo-50 px-1.5 py-0.5 rounded">
-                      +91 ${t.mobile}
-                    </span>
-                  </div>
-                `).join('')}
-              </div>
-            `}
-          </div>
+          <!-- Standard-Wise Teachers & Parents View -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Standard-Wise Teachers -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
+              <h4 class="font-extrabold text-xs text-indigo-900 flex items-center justify-between border-b pb-2">
+                <span><i class="fa-solid fa-chalkboard-user text-indigo-600 mr-1"></i> Registered Teachers (Standard-Wise)</span>
+                <span class="bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded text-[10px]">${school.teachers.length} Total</span>
+              </h4>
+              ${school.teachers.length === 0 ? '<p class="text-[11px] text-slate-400 italic">No registered teachers yet.</p>' : `
+                <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  ${school.teachers.map(t => `
+                    <div class="flex justify-between items-center text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
+                      <div>
+                        <span class="font-bold text-slate-800">${t.name}</span>
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 bg-indigo-100 text-indigo-800 rounded ml-1.5">${t.standard || 'Std 5'}</span>
+                      </div>
+                      <span class="font-bold text-indigo-700 font-mono bg-white px-2 py-1 rounded border border-indigo-200 flex items-center gap-1">
+                        <i class="fa-solid fa-phone text-[10px]"></i> +91 ${t.mobile}
+                      </span>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
 
-          <div class="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
-            <h4 class="font-bold text-xs text-emerald-900 flex items-center gap-1.5 border-b pb-1">
-              <i class="fa-solid fa-users text-emerald-600"></i> Parents List (${school.parents.length})
-            </h4>
-            ${school.parents.length === 0 ? '<p class="text-[11px] text-slate-400 italic">No registered parents yet.</p>' : `
-              <div class="space-y-1.5 max-h-40 overflow-y-auto pr-1">
-                ${school.parents.map(p => `
-                  <div class="flex justify-between items-center text-xs p-1.5 bg-slate-50 rounded border border-slate-100">
-                    <span class="font-semibold text-slate-800">${p.name}</span>
-                    <span class="font-bold text-emerald-700 font-mono bg-emerald-50 px-1.5 py-0.5 rounded">
-                      +91 ${p.mobile}
-                    </span>
-                  </div>
-                `).join('')}
-              </div>
-            `}
+            <!-- Standard-Wise Parents -->
+            <div class="bg-white p-3.5 rounded-xl border border-slate-200 space-y-3">
+              <h4 class="font-extrabold text-xs text-emerald-900 flex items-center justify-between border-b pb-2">
+                <span><i class="fa-solid fa-users text-emerald-600 mr-1"></i> Registered Parents (Standard-Wise)</span>
+                <span class="bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded text-[10px]">${school.parents.length} Total</span>
+              </h4>
+              ${school.parents.length === 0 ? '<p class="text-[11px] text-slate-400 italic">No registered parents yet.</p>' : `
+                <div class="space-y-2 max-h-60 overflow-y-auto pr-1">
+                  ${school.parents.map(p => `
+                    <div class="flex justify-between items-center text-xs p-2 bg-slate-50 rounded-lg border border-slate-100">
+                      <div>
+                        <span class="font-bold text-slate-800">${p.name}</span>
+                        <span class="text-[10px] font-bold px-1.5 py-0.5 bg-emerald-100 text-emerald-800 rounded ml-1.5">${p.standard || 'Std 5'}</span>
+                      </div>
+                      <span class="font-bold text-emerald-700 font-mono bg-white px-2 py-1 rounded border border-emerald-200 flex items-center gap-1">
+                        <i class="fa-solid fa-phone text-[10px]"></i> +91 ${p.mobile}
+                      </span>
+                    </div>
+                  `).join('')}
+                </div>
+              `}
+            </div>
           </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
   } catch (err) {
     container.innerHTML = `<div class="p-4 bg-rose-50 border border-rose-200 text-rose-800 text-xs rounded-xl font-medium">${err.message}</div>`;

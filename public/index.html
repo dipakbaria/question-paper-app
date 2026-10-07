@@ -16,7 +16,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans">
 
-  <!-- ================= TOP NAVIGATION HEADER (IMAGE 2) ================= -->
+  <!-- ================= TOP NAVIGATION HEADER ================= -->
   <header class="bg-indigo-700 text-white shadow-lg sticky top-0 z-40">
     <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap justify-between items-center gap-3">
       <div class="flex items-center gap-3 cursor-pointer" onclick="showDashboardHome()">
@@ -38,7 +38,7 @@
           <i class="fa-solid fa-user-graduate"></i> Student / Parent
         </button>
         <button onclick="switchRole('admin')" id="tab-admin" class="px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 text-indigo-100 hover:text-white">
-          <i class="fa-solid fa-user-gear"></i> Admin
+          <i class="fa-solid fa-user-gear"></i> Head Admin
         </button>
       </div>
     </div>
@@ -47,7 +47,7 @@
   <!-- ================= MAIN CONTAINER ================= -->
   <main class="max-w-7xl mx-auto w-full px-4 py-6 flex-grow space-y-6">
 
-    <!-- Active Profile & User Info Bar -->
+    <!-- Active User Info Bar -->
     <div id="user-info-bar" class="bg-white px-5 py-3 rounded-xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
       <div class="flex items-center gap-3">
         <div class="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
@@ -63,12 +63,12 @@
           <i class="fa-solid fa-school text-indigo-500 mr-1"></i> School Name
         </span>
         <button onclick="openLoginModal()" class="text-indigo-600 hover:underline font-bold">
-          <i class="fa-solid fa-right-from-bracket"></i> Switch User
+          <i class="fa-solid fa-right-from-bracket"></i> Logout / Switch Account
         </button>
       </div>
     </div>
 
-    <!-- ================= 4 MAIN HOME GRID CARDS (IMAGE 1) ================= -->
+    <!-- ================= 4 MAIN HOME GRID CARDS ================= -->
     <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
       
       <!-- CARD 1: HOME WORK -->
@@ -147,10 +147,10 @@
 
     </section>
 
-    <!-- ================= TEACHER WORKSPACE / EXAM STUDIO VIEW ================= -->
-    <section id="role-teacher-view" class="space-y-6">
+    <!-- ================= TEACHER WORKSPACE / EXAM STUDIO VIEW (EXPANDED ON CLICK) ================= -->
+    <section id="role-teacher-view" class="hidden space-y-6">
 
-      <!-- ================= SECTION A: EXAM PAPER STUDIO PANEL ================= -->
+      <!-- EXAM PAPER STUDIO PANEL -->
       <div id="section-exam-studio" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
         <div class="flex flex-wrap justify-between items-center gap-3 border-b border-slate-100 pb-4">
           <div>
@@ -226,7 +226,7 @@
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
-            <!-- Auto Mode: Generate & Generate Again Buttons -->
+            <!-- Auto Mode Buttons -->
             <div id="container-auto-buttons" class="flex items-center gap-2">
               <button onclick="generateAutoExamPaper()" class="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-lg shadow-md transition flex items-center gap-1.5">
                 <i class="fa-solid fa-bolt"></i> ⚡ Generate Auto Paper
@@ -243,7 +243,7 @@
           </div>
         </div>
 
-        <!-- Manual Questions Selection Panel (Initially Hidden) -->
+        <!-- Manual Questions Selection Panel -->
         <div id="panel-manual-checklist" class="hidden bg-slate-50 p-4 border border-slate-200 rounded-xl space-y-4">
           <div class="flex justify-between items-center border-b border-slate-200 pb-2">
             <h4 class="font-bold text-slate-800 text-xs flex items-center gap-2">
@@ -253,13 +253,13 @@
           </div>
           
           <div id="manual-headings-checklist-container" class="space-y-4 max-h-96 overflow-y-auto pr-2">
-            <!-- Dynamically populated headings with sub-question checkboxes -->
+            <!-- Dynamically populated -->
           </div>
         </div>
 
       </div>
 
-      <!-- ================= MAIN STUDIO WORKSPACE (QUESTION BANK & A4 PREVIEW) ================= -->
+      <!-- MAIN STUDIO WORKSPACE (QUESTION BANK & A4 PREVIEW) -->
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         <!-- Left Column: Homework & Classwork Question Bank Explorer -->
@@ -274,7 +274,6 @@
               </button>
             </div>
 
-            <!-- Subject & Chapter Filters -->
             <div class="grid grid-cols-2 gap-2">
               <div>
                 <label class="text-xs font-medium text-slate-500 block mb-1">Subject</label>
@@ -291,7 +290,6 @@
               </div>
             </div>
 
-            <!-- Questions List Explorer -->
             <div id="question-bank-container" class="space-y-3 max-h-[550px] overflow-y-auto pr-1">
               <!-- Dynamically populated -->
             </div>
@@ -300,16 +298,13 @@
 
         <!-- Right Column: Printable A4 Question Paper Sheet Preview -->
         <div class="lg:col-span-7 space-y-4">
-          
           <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-wrap justify-between items-center gap-3">
             <div class="flex items-center gap-2">
               <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
               <h3 class="font-bold text-slate-900 text-sm">A4 Sheet Preview</h3>
             </div>
 
-            <!-- Toolbar Controls -->
             <div class="flex flex-wrap items-center gap-2">
-              <!-- Export Dropdown -->
               <div class="relative group">
                 <button class="px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold rounded-lg shadow-sm transition flex items-center gap-1.5">
                   <i class="fa-solid fa-download"></i> Export Paper <i class="fa-solid fa-chevron-down text-[10px]"></i>
@@ -329,11 +324,9 @@
             </div>
           </div>
 
-          <!-- Printable A4 Paper Container -->
+          <!-- Printable A4 Paper Sheet -->
           <div class="bg-slate-200 p-4 rounded-xl flex justify-center overflow-x-auto min-h-[600px]">
-            <!-- A4 Sheet (Standard 210mm x 297mm proportions) -->
             <div id="a4-paper-sheet" class="bg-white w-[210mm] min-h-[297mm] p-[20mm] shadow-2xl rounded border border-slate-300 font-sans text-slate-900 space-y-4">
-              <!-- Default Initial State -->
               <div class="text-center py-20 text-slate-400 space-y-3">
                 <i class="fa-solid fa-file-lines text-5xl text-slate-300"></i>
                 <h4 class="font-bold text-slate-600">No Paper Generated Yet</h4>
@@ -341,7 +334,6 @@
               </div>
             </div>
           </div>
-
         </div>
 
       </div>
@@ -363,25 +355,24 @@
           </button>
         </div>
 
-        <!-- Classwork & Homework Shared Repository Feed -->
         <div class="space-y-4" id="parent-feed-container">
           <!-- Dynamically populated -->
         </div>
       </div>
     </section>
 
-    <!-- ================= SUPER ADMIN VIEW (WEB ONLY) ================= -->
+    <!-- ================= HEAD ADMIN VIEW (WEB ONLY - STANDARD WISE LISTING) ================= -->
     <section id="role-admin-view" class="hidden space-y-6">
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-6">
         <div class="flex justify-between items-center border-b border-slate-100 pb-4">
           <div>
             <h2 class="text-lg font-bold text-slate-900 flex items-center gap-2">
-              <i class="fa-solid fa-shield-halved text-indigo-600"></i> Super Admin Portal
+              <i class="fa-solid fa-shield-halved text-indigo-600"></i> Head Admin Portal (Web-Only)
             </h2>
-            <p class="text-xs text-slate-500 mt-0.5">Manage registered schools, view teachers & parents list with mobile numbers.</p>
+            <p class="text-xs text-slate-500 mt-0.5">Manage registered schools, view teachers & parents listed Standard-wise with mobile numbers.</p>
           </div>
           <span class="text-xs font-bold px-3 py-1 bg-amber-100 text-amber-800 rounded-full border border-amber-300 flex items-center gap-1.5">
-            <i class="fa-solid fa-laptop"></i> Web-Only Portal
+            <i class="fa-solid fa-laptop"></i> Invisible Head Admin
           </span>
         </div>
 
@@ -391,19 +382,19 @@
             <i class="fa-solid fa-school text-indigo-600"></i> Register New School
           </h4>
           <form onsubmit="adminAddNewSchool(event)" class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <input type="text" id="admin-school-name" required placeholder="School Name (e.g. St. Xavier High School)" class="text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-            <input type="text" id="admin-school-code" required placeholder="School Code / Locality (e.g. Daman)" class="text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <input type="text" id="admin-school-name" required placeholder="School Name (e.g. St. Xavier High School)" class="text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+            <input type="text" id="admin-school-code" required placeholder="Locality / Code (e.g. Daman)" class="text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
             <button type="submit" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow transition flex items-center justify-center gap-2">
               <i class="fa-solid fa-plus"></i> Add School Entry
             </button>
           </form>
         </div>
 
-        <!-- School Directory -->
+        <!-- Standard-Wise School Directory -->
         <div class="space-y-3">
           <div class="flex justify-between items-center">
             <h4 class="font-bold text-slate-900 text-sm flex items-center gap-2">
-              <i class="fa-solid fa-folder-tree text-indigo-600"></i> School Directory (Teachers & Parents Mobile Numbers)
+              <i class="fa-solid fa-folder-tree text-indigo-600"></i> School Directory (Standard-Wise Teachers & Parents)
             </h4>
             <button onclick="loadAdminDirectory()" class="text-xs text-indigo-600 hover:underline flex items-center gap-1 font-semibold">
               <i class="fa-solid fa-rotate-right"></i> Refresh Directory
@@ -419,7 +410,7 @@
 
   </main>
 
-  <!-- ================= MODAL 1: HOME WORK & CLASS WORK UPLOAD MODAL (IMAGE 3) ================= -->
+  <!-- ================= MODAL 1: HOME WORK & CLASS WORK UPLOAD MODAL ================= -->
   <div id="modal-upload" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
     <div class="bg-white max-w-lg w-full rounded-2xl shadow-2xl p-6 space-y-5 border border-slate-200">
       <div class="flex justify-between items-center border-b border-slate-100 pb-3">
@@ -431,13 +422,9 @@
         </button>
       </div>
 
-      <!-- Upload Form -->
       <form id="upload-form" onsubmit="handleImageUpload(event)" class="space-y-4">
-        
-        <!-- Hidden Work Type (homework / classwork) -->
         <input type="hidden" id="upload-work-type" value="homework">
 
-        <!-- Row 1: Date & Standard -->
         <div class="grid grid-cols-2 gap-3">
           <div>
             <label class="text-xs font-bold text-slate-700 block mb-1">Date</label>
@@ -462,14 +449,12 @@
           </div>
         </div>
 
-        <!-- Row 2: Subject Dropdown (With + Add Subject option) -->
         <div>
           <label class="text-xs font-bold text-slate-700 block mb-1">Subject</label>
           <select id="upload-subject" onchange="onUploadSubjectChange(this)" required class="w-full text-xs font-bold border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-            <!-- Dynamically populated with + Add Subject at end -->
+            <!-- Dynamically populated -->
           </select>
 
-          <!-- Inline Custom Subject Add Container -->
           <div id="container-add-subject" class="hidden mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
             <label class="text-xs font-bold text-indigo-900 block">Enter Custom Subject Name:</label>
             <div class="flex gap-2">
@@ -481,7 +466,6 @@
           </div>
         </div>
 
-        <!-- Row 3: Chapter No & Chapter Name -->
         <div class="grid grid-cols-3 gap-3">
           <div>
             <label class="text-xs font-bold text-slate-700 block mb-1">Chapter No.</label>
@@ -493,18 +477,15 @@
           </div>
         </div>
 
-        <!-- Photo Capture / Gallery Options (IMAGE 3) -->
         <div>
           <label class="text-xs font-bold text-slate-700 block mb-1.5">Select / Capture Photos</label>
           <div class="grid grid-cols-2 gap-2 mb-1.5">
-            <!-- Gallery Photos -->
             <label class="border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 p-3 rounded-xl cursor-pointer text-center transition flex items-center justify-center gap-2 text-xs font-bold text-indigo-900 shadow-sm">
               <i class="fa-solid fa-images text-indigo-600 text-base"></i>
               <span>Gallery Photos</span>
               <input type="file" id="upload-files" multiple accept="image/*" onchange="updateFileCountLabel()" class="hidden">
             </label>
 
-            <!-- Live Camera -->
             <label class="border border-indigo-600 bg-indigo-600 hover:bg-indigo-700 p-3 rounded-xl cursor-pointer text-center text-white transition flex items-center justify-center gap-2 text-xs font-bold shadow-md">
               <i class="fa-solid fa-camera text-amber-300 text-base"></i>
               <span>📸 Live Camera</span>
@@ -537,7 +518,6 @@
       </div>
 
       <div class="space-y-4">
-        <!-- List of current Headings -->
         <div class="space-y-2">
           <label class="text-xs font-bold text-slate-700 block">Question Paper Headings Structure:</label>
           <div id="headings-list-container" class="space-y-2 max-h-48 overflow-y-auto pr-1">
@@ -545,7 +525,6 @@
           </div>
         </div>
 
-        <!-- Add New Heading Box -->
         <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
           <label class="text-xs font-bold text-slate-800 block flex items-center gap-1">
             <i class="fa-solid fa-plus-circle text-rose-600"></i> Add Custom Question Heading:
@@ -565,100 +544,167 @@
     </div>
   </div>
 
-  <!-- ================= MODAL 3: LOGIN & REGISTRATION MODAL ================= -->
+  <!-- ================= MODAL 3: LOGIN & REGISTRATION AUTH MODAL ================= -->
   <div id="modal-login" class="fixed inset-0 bg-indigo-950/80 backdrop-blur-md hidden z-50 flex items-center justify-center p-4">
-    <div class="bg-white max-w-md w-full rounded-2xl shadow-2xl p-6 space-y-5 border border-slate-200">
-      <div class="text-center space-y-1 border-b border-slate-100 pb-4">
+    <div class="bg-white max-w-md w-full rounded-2xl shadow-2xl p-6 space-y-4 border border-slate-200 max-h-[90vh] overflow-y-auto">
+      
+      <div class="text-center space-y-1 border-b border-slate-100 pb-3">
         <div class="w-12 h-12 bg-indigo-100 text-indigo-600 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-2 font-bold shadow-inner">
-          <i class="fa-solid fa-mobile-screen-button"></i>
+          <i class="fa-solid fa-graduation-cap"></i>
         </div>
-        <h3 class="font-extrabold text-slate-900 text-lg">Welcome to Paper AI Studio</h3>
-        <p class="text-xs text-slate-500">Sign in to access your School & Class Repository</p>
+        <h3 class="font-extrabold text-slate-900 text-lg">Paper AI Studio Auth Portal</h3>
+        <p class="text-xs text-slate-500">Register or Sign in with Password</p>
+
+        <!-- Auth Mode Switcher Tabs (Login vs Register) -->
+        <div class="flex items-center bg-slate-100 p-1 rounded-xl text-xs font-bold mt-3">
+          <button id="auth-tab-login" onclick="switchAuthTab('login')" class="flex-1 py-2 rounded-lg bg-indigo-600 text-white shadow transition">
+            🔑 Sign In (Login)
+          </button>
+          <button id="auth-tab-register" onclick="switchAuthTab('register')" class="flex-1 py-2 rounded-lg text-slate-600 hover:text-slate-900 transition">
+            📝 New Account (Register)
+          </button>
+        </div>
       </div>
 
-      <form id="login-form" onsubmit="handleMobileLogin(event)" class="space-y-4">
-        <!-- Role Choice Radios (Requirement 1) -->
+      <!-- FORM 1: LOGIN FORM -->
+      <form id="login-form" onsubmit="handleUserLoginSubmit(event)" class="space-y-4">
         <div>
-          <label class="text-xs font-bold text-slate-700 block mb-1.5">I am logging in as:</label>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Logging in as:</label>
           <div class="grid grid-cols-2 gap-2 text-xs font-bold">
-            <label class="flex items-center justify-center gap-1.5 p-2.5 border rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 border-slate-200" id="label-role-teacher">
+            <label class="flex items-center justify-center gap-1.5 p-2 border rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 border-slate-200">
               <input type="radio" name="login-role" value="teacher" checked onchange="onLoginRoleChange()" class="text-indigo-600">
               <span>📱 Teacher</span>
             </label>
-            <label class="flex items-center justify-center gap-1.5 p-2.5 border rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 border-slate-200" id="label-role-parent">
+            <label class="flex items-center justify-center gap-1.5 p-2 border rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 border-slate-200">
               <input type="radio" name="login-role" value="parent" onchange="onLoginRoleChange()" class="text-indigo-600">
               <span>👪 Student/Parent</span>
             </label>
           </div>
-          <!-- Admin Choice (WEB ONLY) -->
           <div id="admin-login-option-container" class="mt-2 text-center">
             <label class="inline-flex items-center gap-1.5 text-xs text-indigo-600 hover:underline cursor-pointer font-bold">
               <input type="radio" name="login-role" value="admin" onchange="onLoginRoleChange()" class="text-indigo-600">
-              <span>🔑 Super Admin Portal (Web-Only)</span>
+              <span>🔑 Head Admin Portal (Web-Only)</span>
             </label>
           </div>
         </div>
 
-        <!-- School Selection with + Add New School Button -->
-        <div id="field-school-select">
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Mobile Number or Name</label>
+          <input type="text" id="login-input-mobile" required placeholder="Enter Mobile Number (9876543210)" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+        </div>
+
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Password</label>
+          <input type="password" id="login-input-password" required placeholder="Enter your password" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+        </div>
+
+        <button type="submit" id="btn-submit-login" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-right-to-bracket"></i> Sign In To Studio
+        </button>
+        
+        <p class="text-[11px] text-slate-500 text-center">Don't have an account? <button type="button" onclick="switchAuthTab('register')" class="text-indigo-600 font-bold hover:underline">Register Now</button></p>
+      </form>
+
+      <!-- FORM 2: REGISTER FORM -->
+      <form id="register-form" onsubmit="handleUserRegisterSubmit(event)" class="hidden space-y-3">
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1">Registering as:</label>
+          <div class="grid grid-cols-2 gap-2 text-xs font-bold">
+            <label class="flex items-center justify-center gap-1.5 p-2 border rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 border-slate-200">
+              <input type="radio" name="reg-role" value="teacher" checked onchange="onRegisterRoleChange()" class="text-indigo-600">
+              <span>📱 Teacher</span>
+            </label>
+            <label class="flex items-center justify-center gap-1.5 p-2 border rounded-xl cursor-pointer bg-slate-50 hover:bg-indigo-50 border-slate-200">
+              <input type="radio" name="reg-role" value="parent" onchange="onRegisterRoleChange()" class="text-indigo-600">
+              <span>👪 Student/Parent</span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Standard Select -->
+        <div id="field-reg-std">
+          <label class="text-xs font-bold text-slate-700 block mb-1">Select Standard</label>
+          <select id="reg-user-std" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+            <option value="Std 1">Std 1</option>
+            <option value="Std 2">Std 2</option>
+            <option value="Std 3">Std 3</option>
+            <option value="Std 4">Std 4</option>
+            <option value="Std 5" selected>Std 5</option>
+            <option value="Std 6">Std 6</option>
+            <option value="Std 7">Std 7</option>
+            <option value="Std 8">Std 8</option>
+            <option value="Std 9">Std 9</option>
+            <option value="Std 10">Std 10</option>
+            <option value="Std 11">Std 11</option>
+            <option value="Std 12">Std 12</option>
+          </select>
+        </div>
+
+        <!-- School Selection -->
+        <div>
           <div class="flex justify-between items-center mb-1">
             <label class="text-xs font-bold text-slate-600 block">Select School</label>
             <button type="button" onclick="toggleAddSchoolFields()" class="text-[11px] text-indigo-600 font-bold hover:underline flex items-center gap-1">
               <i class="fa-solid fa-plus-circle"></i> + Add New School
             </button>
           </div>
-          <select id="login-school-id" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+          <select id="reg-school-id" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
             <!-- Dynamically populated -->
           </select>
 
-          <!-- Add New School Fields (Initially Hidden) -->
-          <div id="container-add-school" class="hidden mt-3 p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
+          <!-- Add New School Fields -->
+          <div id="container-add-school" class="hidden mt-2 p-3 bg-indigo-50 border border-indigo-200 rounded-xl space-y-2">
             <h4 class="text-xs font-bold text-indigo-900 flex items-center gap-1">
-              <i class="fa-solid fa-school text-indigo-600"></i> Add New School with Locality
+              <i class="fa-solid fa-school text-indigo-600"></i> Add School with Locality
             </h4>
-            <div>
-              <input type="text" id="new-school-name" placeholder="School Name (e.g. Sarvajanik Vidhyalaya)" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
-            </div>
-            <div>
-              <input type="text" id="new-school-locality" placeholder="Locality / City Name (e.g. Daman)" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-medium">
-            </div>
-            <button type="button" onclick="addNewSchoolWithLocality()" class="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow transition flex items-center justify-center gap-1">
-              <i class="fa-solid fa-check-circle"></i> Save & Select School
+            <input type="text" id="new-school-name" placeholder="School Name (e.g. Sarvajanik Vidhyalaya)" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <input type="text" id="new-school-locality" placeholder="Locality / City Name (e.g. Daman)" class="w-full text-xs border border-slate-300 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+            <button type="button" onclick="addNewSchoolWithLocality()" class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow">
+              Save & Select School
             </button>
           </div>
         </div>
 
-        <!-- Name Field (Dynamic Label per Role: 1.1 Teacher Name, 1.2 Student Name, 1.3 Principal Name) -->
-        <div id="field-user-name">
-          <label class="text-xs font-bold text-slate-700 block mb-1" id="label-user-name-input">Teacher Name</label>
-          <input type="text" id="login-user-name" placeholder="e.g. Sunita Sharma" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+        <!-- Full Name -->
+        <div>
+          <label class="text-xs font-bold text-slate-700 block mb-1" id="label-reg-name-input">Teacher Name</label>
+          <input type="text" id="reg-user-name" required placeholder="e.g. Sunita Sharma" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
         </div>
 
-        <!-- City / Locality Field -->
-        <div id="field-user-city">
+        <!-- City / Locality -->
+        <div>
           <label class="text-xs font-bold text-slate-700 block mb-1">City / Locality Name</label>
-          <input type="text" id="login-user-city" placeholder="e.g. Daman" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold">
+          <input type="text" id="reg-user-city" required placeholder="e.g. Daman" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-semibold">
         </div>
 
-        <!-- Mobile Number Field -->
-        <div id="field-user-mobile">
+        <!-- Mobile Number -->
+        <div>
           <label class="text-xs font-bold text-slate-700 block mb-1">Mobile Number</label>
           <div class="relative">
             <span class="absolute left-3 top-2.5 text-xs text-slate-400 font-bold">+91</span>
-            <input type="tel" id="login-user-mobile" maxlength="10" placeholder="9876543210" class="w-full text-xs pl-11 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold tracking-wider">
+            <input type="tel" id="reg-user-mobile" maxlength="10" required placeholder="9876543210" class="w-full text-xs pl-11 border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold tracking-wider">
           </div>
         </div>
 
-        <!-- Admin Passcode Field (Web-Only Admin Login) -->
-        <div id="field-admin-passcode" class="hidden">
-          <label class="text-xs font-bold text-amber-700 block mb-1">Super Admin Passcode</label>
-          <input type="password" id="login-admin-passcode" placeholder="Enter admin passcode (admin123)" class="w-full text-xs border border-amber-300 bg-amber-50 rounded-lg p-2.5 focus:ring-2 focus:ring-amber-500 focus:outline-none font-bold">
+        <!-- Password & Confirm Password -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">Password</label>
+            <input type="password" id="reg-user-pass" required placeholder="Password" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+          </div>
+          <div>
+            <label class="text-xs font-bold text-slate-700 block mb-1">Confirm Password</label>
+            <input type="password" id="reg-user-pass-confirm" required placeholder="Confirm" class="w-full text-xs border border-slate-300 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none font-bold">
+          </div>
         </div>
 
-        <button type="submit" id="btn-submit-login" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
-          <i class="fa-solid fa-right-to-bracket"></i> Continue to App
+        <button type="submit" id="btn-submit-register" class="w-full py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-lg transition flex items-center justify-center gap-2">
+          <i class="fa-solid fa-user-plus"></i> Create Account & Register
         </button>
+
+        <p class="text-[11px] text-slate-500 text-center">Already registered? <button type="button" onclick="switchAuthTab('login')" class="text-indigo-600 font-bold hover:underline">Sign In</button></p>
       </form>
+
     </div>
   </div>
 

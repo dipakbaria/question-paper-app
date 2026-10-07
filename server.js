@@ -217,25 +217,66 @@ app.get('/api/schools', (req, res) => {
   res.json({ schools: publicSchools });
 });
 
-// Mobile Number Login & Registration Endpoint
-app.post('/api/auth/login-mobile', (req, res) => {
-  const { mobile, name, role, schoolId, adminPasscode } = req.body;
+// Registration Endpoint with Password & Confirm Password
+app.post('/api/auth/register', (req, res) => {
+  const { name, mobile, role, standard, schoolId, cityName, password } = req.body;
 
   if (!mobile || mobile.length < 10) {
     return res.status(400).json({ error: 'Valid 10-digit mobile number is required' });
   }
+
+  if (!password || password.length < 3) {
+    return res.status(400).json({ error: 'Password must be at least 3 characters long' });
+  }
+
+  const db = getUsersSchoolsData();
+  const existingUser = db.users.find(u => u.mobile === mobile.trim() && u.role === role);
+
+  if (existingUser) {
+    return res.status(400).json({ error: 'Mobile number is already registered for this role. Please Login!' });
+  }
+
+  const targetSchool = db.schools.find(s => s.id === schoolId) || db.schools[0];
+  const newUser = {
+    id: 'usr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+    name: (name || 'User').trim(),
+    mobile: mobile.trim(),
+    role: role || 'teacher',
+    standard: standard || 'Std 5',
+    schoolId: targetSchool ? targetSchool.id : 'sch_dps01',
+    cityName: cityName || '',
+    password: password.trim(),
+    createdAt: new Date().toISOString()
+  };
+
+  db.users.push(newUser);
+  saveUsersSchoolsData(db);
+
+  res.json({
+    success: true,
+    message: 'Registration successful! Please login with your Mobile Number and Password.',
+    user: {
+      ...newUser,
+      schoolName: targetSchool ? targetSchool.name : 'Default School'
+    }
+  });
+});
+
+// Mobile Number / Name & Password Login Endpoint
+app.post('/api/auth/login-mobile', (req, res) => {
+  const { mobile, name, password, role, schoolId, adminPasscode } = req.body;
 
   const db = getUsersSchoolsData();
 
   // Super Admin Authentication (Web-Only)
   if (role === 'admin') {
     const validPasscode = (db.systemConfig && db.systemConfig.adminPasscode) || 'admin123';
-    if (adminPasscode !== validPasscode) {
+    if (adminPasscode !== validPasscode && password !== validPasscode) {
       return res.status(401).json({ error: 'Invalid Super Admin Passcode' });
     }
     let adminUser = db.users.find(u => u.role === 'admin');
     if (!adminUser) {
-      adminUser = { id: 'usr_admin', name: name || 'Super Admin', mobile, role: 'admin', schoolId: schoolId || 'sch_dps01', createdAt: new Date().toISOString() };
+      adminUser = { id: 'usr_admin', name: name || 'Super Admin', mobile: mobile || '9999999999', role: 'admin', schoolId: schoolId || 'sch_dps01', createdAt: new Date().toISOString() };
       db.users.push(adminUser);
       saveUsersSchoolsData(db);
     }
@@ -246,31 +287,22 @@ app.post('/api/auth/login-mobile', (req, res) => {
     });
   }
 
-  // Teacher / Parent Mobile Number Registration & Login
-  let existingUser = db.users.find(u => u.mobile === mobile.trim() && u.role === role);
+  // Teacher / Parent Mobile Number & Password Login
+  const searchInput = (mobile || name || '').trim();
+  let existingUser = db.users.find(u => (u.mobile === searchInput || u.name.toLowerCase() === searchInput.toLowerCase()) && u.role === role);
 
   if (!existingUser) {
-    if (!name || name.trim().length < 2) {
-      return res.status(400).json({ error: 'Name is required for new registration' });
-    }
-    const targetSchool = db.schools.find(s => s.id === schoolId) || db.schools[0];
-    existingUser = {
-      id: 'usr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
-      name: name.trim(),
-      mobile: mobile.trim(),
-      role: role || 'teacher',
-      schoolId: targetSchool ? targetSchool.id : 'sch_dps01',
-      createdAt: new Date().toISOString()
-    };
-    db.users.push(existingUser);
-    saveUsersSchoolsData(db);
+    return res.status(404).json({ error: 'Account not found! Please Register first.' });
+  }
+
+  if (existingUser.password && password && existingUser.password !== password.trim()) {
+    return res.status(401).json({ error: 'Incorrect Password! Please check and try again.' });
   }
 
   const school = db.schools.find(s => s.id === existingUser.schoolId);
 
-  // Check Subscription Status for Teachers
   if (role === 'teacher' && school && school.subscriptionStatus === 'inactive') {
-    return res.status(403).json({ error: `School '${school.name}' subscription is currently INACTIVE. Please contact Super Admin.` });
+    return res.status(403).json({ error: `School '${school.name}' subscription is currently INACTIVE. Please contact Head Admin.` });
   }
 
   res.json({
@@ -283,7 +315,7 @@ app.post('/api/auth/login-mobile', (req, res) => {
   });
 });
 
-// WEB-ONLY SUPER ADMIN DIRECTORY & SCHOOL MANAGEMENT
+// WEB-ONLY SUPER ADMIN DIRECTORY (Standard-wise Listing of Teachers & Parents)
 app.get('/api/admin/directory', (req, res) => {
   const passcode = req.headers['x-admin-passcode'];
   const db = getUsersSchoolsData();
@@ -293,11 +325,10 @@ app.get('/api/admin/directory', (req, res) => {
     return res.status(401).json({ error: 'Unauthorized: Invalid Admin Passcode' });
   }
 
-  // Build tree of schools with nested teachers and parents with name and mobile
   const directory = db.schools.map(school => {
     const schoolUsers = db.users.filter(u => u.schoolId === school.id);
-    const teachers = schoolUsers.filter(u => u.role === 'teacher').map(t => ({ name: t.name, mobile: t.mobile, joined: t.createdAt }));
-    const parents = schoolUsers.filter(u => u.role === 'parent').map(p => ({ name: p.name, mobile: p.mobile, joined: p.createdAt }));
+    const teachers = schoolUsers.filter(u => u.role === 'teacher').map(t => ({ name: t.name, mobile: t.mobile, standard: t.standard || 'Std 5', joined: t.createdAt }));
+    const parents = schoolUsers.filter(u => u.role === 'parent').map(p => ({ name: p.name, mobile: p.mobile, standard: p.standard || 'Std 5', joined: p.createdAt }));
 
     return {
       id: school.id,
