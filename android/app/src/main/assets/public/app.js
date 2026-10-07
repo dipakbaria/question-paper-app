@@ -836,6 +836,7 @@ async function handleImageUpload(e) {
     const base64Images = await Promise.all(base64Promises);
 
     let result = null;
+    let errMessage = 'Failed to extract questions. Please check your Gemini API key.';
     try {
       const savedClientKey = localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
       const response = await fetch('/api/convert-images', {
@@ -844,51 +845,26 @@ async function handleImageUpload(e) {
         body: JSON.stringify({ images: base64Images, subject, chapterNo, chapterName, apiKey: savedClientKey })
       });
 
-      if (response.ok) {
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          result = await response.json();
-        }
+      const contentType = response.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        result = await response.json();
       }
-    } catch (netErr) {}
+
+      if (!response.ok && result && result.error) {
+        errMessage = result.error;
+      }
+    } catch (netErr) {
+      errMessage = netErr.message || 'Network error while contacting AI vision server.';
+    }
 
     if (!result || !result.success || !result.extractedData) {
-      result = {
-        success: true,
-        extractedData: {
-          chapterName: chapterName || 'Lesson',
-          chapterNo: chapterNo || '1',
-          subject: subject || 'Science',
-          sectionQuestions: [
-            {
-              heading: '1. Answer the Following.',
-              type: 'short_answer',
-              items: [
-                { question: `What is the main topic of ${subject || 'Science'} Chapter ${chapterNo || '1'}?`, answer: `${chapterName || 'Lesson'} covers core concepts of ${subject || 'Science'}.` }
-              ]
-            },
-            {
-              heading: '2. Define',
-              type: 'define',
-              items: [
-                { question: 'Environment', answer: 'The surroundings of an animal that forms the environment which is just right for it to live in.' },
-                { question: 'Herbivorous animals', answer: 'Herbivorous animals are those that consume only plants.' },
-                { question: 'Omnivorous animals', answer: 'Animals that eat both plants and the flesh of other animals are called omnivorous animals.' },
-                { question: 'Carnivorous animals', answer: 'Animals that eat only the flesh of other animals are known as carnivorous animals.' },
-                { question: 'Plateau', answer: 'A plateau is a raised area having steep slopes and flat top.' },
-                { question: 'Peninsular', answer: 'Peninsular is a triangular land with water on the three sides and land on one side.' }
-              ]
-            },
-            {
-              heading: '3. Fill in the blanks.',
-              type: 'fill_in_blanks',
-              items: [
-                { question: `In ${subject || 'Science'}, energy flows in a __straight line__.`, answer: 'straight line' }
-              ]
-            }
-          ]
-        }
-      };
+      showToast(errMessage, 'error');
+      const keyInput = document.getElementById('input-modal-api-key');
+      if (keyInput) {
+        keyInput.focus();
+        keyInput.classList.add('ring-4', 'ring-rose-500');
+      }
+      return;
     }
 
     const extracted = result.extractedData;

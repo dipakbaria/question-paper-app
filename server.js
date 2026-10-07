@@ -430,75 +430,10 @@ app.post('/api/convert-images', async (req, res) => {
 
   const activeApiKey = (clientApiKey && clientApiKey.trim()) || apiKey || process.env.GEMINI_API_KEY || '';
 
-  // Subject-aware fallback extraction if API key is missing or not yet configured
+  // API Key is strictly required for live photo OCR
   if (!activeApiKey || activeApiKey === 'YOUR_FREE_GEMINI_API_KEY_HERE') {
-    const targetSubject = subject || 'Science';
-    const targetChapNo = chapterNo || '1';
-    const targetChapName = chapterName || 'Lesson';
-
-    const fallbackSections = [
-      {
-        heading: 'Answer the Following.',
-        type: 'short_answer',
-        items: [
-          {
-            question: `What is the main topic of ${targetSubject} Chapter ${targetChapNo}?`,
-            answer: `The main topic of ${targetChapName} is the fundamental principles of ${targetSubject}.`
-          }
-        ]
-      },
-      {
-        heading: 'Define',
-        type: 'define',
-        items: [
-          {
-            question: 'Environment',
-            answer: 'The surroundings of an animal that forms the environment which is just right for it to live in.'
-          },
-          {
-            question: 'Herbivorous animals',
-            answer: 'Herbivorous animals are those that consume only plants.'
-          },
-          {
-            question: 'Omnivorous animals',
-            answer: 'Animals that eat both plants and the flesh of other animals are called omnivorous animals.'
-          },
-          {
-            question: 'Carnivorous animals',
-            answer: 'Animals that eat only the flesh of other animals are known as carnivorous animals.'
-          },
-          {
-            question: 'Plateau',
-            answer: 'A plateau is a raised area having steep slopes and flat top.'
-          },
-          {
-            question: 'Peninsular',
-            answer: 'Peninsular is a triangular land with water on the three sides and land on one side.'
-          }
-        ]
-      },
-      {
-        heading: 'Fill in the blanks.',
-        type: 'fill_in_blanks',
-        items: [
-          {
-            question: `In ${targetSubject}, energy flows in a __straight line__.`,
-            answer: 'straight line'
-          }
-        ]
-      }
-    ];
-
-    return res.json({
-      success: true,
-      demoMode: true,
-      message: 'Demo Mode (Configure your Gemini API key in Admin tab for live photo OCR)',
-      extractedData: {
-        chapterName: targetChapName,
-        chapterNo: targetChapNo,
-        subject: targetSubject,
-        sectionQuestions: fallbackSections
-      }
+    return res.status(400).json({
+      error: 'Gemini API Key is missing! Please enter your free Gemini API Key in the upload window to scan notebook photos live.'
     });
   }
 
@@ -506,7 +441,7 @@ app.post('/api/convert-images', async (req, res) => {
     const candidateModels = await getWorkingVisionModels(activeApiKey);
     
     if (candidateModels.length === 0) {
-      return res.status(400).json({ error: 'Your Gemini API key is invalid or has no accessible models. Please check key in Admin tab.' });
+      return res.status(400).json({ error: 'Your Gemini API key is invalid or has no accessible models. Please check key in Admin tab or upload window.' });
     }
 
     const imageParts = images.map(imgBase64 => {
@@ -523,19 +458,21 @@ app.post('/api/convert-images', async (req, res) => {
 You are an expert student notebook OCR & Classwork Question-Answer Extractor.
 You have been provided with ${images.length} notebook image(s) for Subject: "${subject || 'General'}", Chapter ${chapterNo || '1'}: "${chapterName || 'Chapter'}".
 
-STRICT CLASSWORK EXTRACTION RULES:
-1. Inspect ALL ${images.length} attached notebook pages thoroughly from top to bottom.
-2. Extract EVERY section heading as written in the notebook (e.g. "Answer the Following.", "Define", "Fill in the blanks.", "True or False.").
-3. For Question & Answer items (e.g., "Answer the Following", "Short Answers"):
-   - Extract the question text (e.g. "What is your name?").
-   - Extract the COMPLETE written answer written in the notebook (e.g. "My name is Dipak").
+STRICT HANDWRITTEN NOTEBOOK EXTRACTION RULES:
+1. Inspect ALL ${images.length} attached notebook pages thoroughly from top to bottom. Read actual handwritten text on the pages.
+2. Extract EVERY section heading as written in the notebook (e.g. "* Answer the following question", "* Fill in The Blanks", "* Write True or False :", "* Define").
+3. For Short Answer Questions (e.g. "Q-1] Name the two birds with climbing feet?"):
+   - Extract question text into "question" (e.g. "Name the two birds with climbing feet?").
+   - Extract written answer text into "answer" (e.g. "The two birds with climbing feet are woodpecker and parrots.").
 4. CRITICAL FOR "Define" OR "Definitions" SECTION HEADINGS:
-   - Each item under "Define" MUST extract the specific word or term being defined into the "question" field (e.g., question: "Environment", question: "Herbivorous animals", question: "Plateau", question: "Peninsular").
-   - DO NOT leave the question field blank or empty!
-   - Extract the complete definition explanation into the "answer" field (e.g. answer: "The surroundings of an animal that forms the environment which is just right for it to live in.").
+   - Extract the specific word or term being defined into "question" (e.g., question: "Deforestation", question: "Environment").
+   - Extract the complete definition text into "answer".
 5. For Fill in the Blanks:
-   - Extract the complete statement with the filled answer word clearly formatted with underlines (e.g. "My name is __Dipak__." or "My name is <u>Dipak</u>.").
-6. Include every single question and answer in order as written on the notebook pages.
+   - Extract statement into "question". Wrap the filled answer word in double underscores: "A large area of land that is densely covered with bushes, trees and other vegetation is known as a __Forest__."
+   - Extract filled answer word into "answer" (e.g. "Forest").
+6. For True or False:
+   - Extract statement into "question" and result into "answer" (e.g. "Sacred groves are places where cutting of trees is allowed.", "answer": "False").
+7. Include every single question and answer in order as written on the notebook pages.
 
 Return ONLY a valid JSON object matching this structure:
 {
@@ -544,27 +481,24 @@ Return ONLY a valid JSON object matching this structure:
   "subject": "${subject || 'General'}",
   "sectionQuestions": [
     {
-      "heading": "Answer the Following.",
+      "heading": "Answer the following question",
       "type": "short_answer",
       "items": [
-        { "question": "What is your name?", "answer": "My name is Dipak" }
+        { "question": "Name the two birds with climbing feet?", "answer": "The two birds with climbing feet are woodpecker and parrots." }
       ]
     },
     {
-      "heading": "Define",
-      "type": "define",
-      "items": [
-        { "question": "Environment", "answer": "The surroundings of an animal that forms the environment which is just right for it to live in." },
-        { "question": "Herbivorous animals", "answer": "Herbivorous animals are those that consume only plants." },
-        { "question": "Plateau", "answer": "A plateau is a raised area having steep slopes and flat top." },
-        { "question": "Peninsular", "answer": "Peninsular is a triangular land with water on three sides and land on one side." }
-      ]
-    },
-    {
-      "heading": "Fill in the blanks.",
+      "heading": "Fill in the Blanks",
       "type": "fill_in_blanks",
       "items": [
-        { "question": "My name is __Dipak__.", "answer": "Dipak" }
+        { "question": "A large area of land that is densely covered with bushes, trees and other vegetation is known as a __Forest__.", "answer": "Forest" }
+      ]
+    },
+    {
+      "heading": "Write True or False",
+      "type": "true_false",
+      "items": [
+        { "question": "Sacred groves are places where cutting of trees is allowed.", "answer": "False" }
       ]
     }
   ]
