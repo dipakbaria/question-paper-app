@@ -2,9 +2,23 @@
 let dbData = { chapters: [], papers: [] };
 let currentPaper = null;
 let currentRole = 'teacher';
-let currentUser = null; // { id, name, mobile, role, schoolId, schoolName }
+let currentUser = null; // { id, name, mobile, role, schoolId, schoolName, cityName }
 let adminPasscode = '';
 let sharedFeed = [];
+
+// Master Subjects List
+let masterSubjects = ['EVS', 'English', 'Maths', 'Science', 'Gujarati', 'Hindi', 'Social Science', 'General Knowledge', 'Computer', 'Moral Science'];
+
+// Paper Type Question Headings Structure for Exam Studio
+let paperTypeHeadings = [
+  'Q1. Tick (✓) the correct option:',
+  'Q2. Fill in the blanks:',
+  'Q3. Write \'T\' for true and \'F\' for false statements:',
+  'Q4. Answer the following questions:'
+];
+
+let currentExamMode = 'auto'; // 'auto' or 'manual'
+let manualSelectedQuestionIds = [];
 
 // Check if running inside native Android / iOS app build or mobile standalone PWA
 function isNativeMobileDevice() {
@@ -16,10 +30,116 @@ function isNativeMobileDevice() {
 
 // DOM Loaded Initialization
 document.addEventListener('DOMContentLoaded', () => {
+  loadMasterSubjects();
+  loadPaperHeadings();
   enforcePlatformSecurityRules();
   checkAuthSession();
   loadQuestionBank();
 });
+
+// Load saved custom subjects
+function loadMasterSubjects() {
+  try {
+    const saved = localStorage.getItem('paper_ai_master_subjects');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        masterSubjects = parsed;
+      }
+    }
+  } catch (e) {}
+  populateAllSubjectDropdowns();
+}
+
+function saveMasterSubjects() {
+  try {
+    localStorage.setItem('paper_ai_master_subjects', JSON.stringify(masterSubjects));
+  } catch (e) {}
+  populateAllSubjectDropdowns();
+}
+
+// Populate all subject selects across UI
+function populateAllSubjectDropdowns() {
+  const uploadSelect = document.getElementById('upload-subject');
+  const examSelect = document.getElementById('exam-subject-select');
+  const filterSelect = document.getElementById('filter-subject');
+
+  if (uploadSelect) {
+    const currentVal = uploadSelect.value;
+    uploadSelect.innerHTML = masterSubjects.map(s => `<option value="${s}">${s}</option>`).join('') +
+      `<option value="ADD_NEW" class="font-bold text-indigo-600">+ Add New Subject...</option>`;
+    if (currentVal && masterSubjects.includes(currentVal)) uploadSelect.value = currentVal;
+  }
+
+  if (examSelect) {
+    const currentVal = examSelect.value;
+    examSelect.innerHTML = masterSubjects.map(s => `<option value="${s}">${s}</option>`).join('');
+    if (currentVal && masterSubjects.includes(currentVal)) examSelect.value = currentVal;
+  }
+
+  if (filterSelect) {
+    const currentVal = filterSelect.value;
+    filterSelect.innerHTML = `<option value="ALL">All Subjects</option>` + masterSubjects.map(s => `<option value="${s}">${s}</option>`).join('');
+    if (currentVal) filterSelect.value = currentVal;
+  }
+}
+
+// Custom Subject Handler
+function onUploadSubjectChange(selectEl) {
+  const container = document.getElementById('container-add-subject');
+  if (selectEl.value === 'ADD_NEW') {
+    if (container) container.classList.remove('hidden');
+  } else {
+    if (container) container.classList.add('hidden');
+  }
+}
+
+function addNewCustomSubject() {
+  const input = document.getElementById('input-custom-subject');
+  const name = input ? input.value.trim() : '';
+
+  if (!name) {
+    showToast('Please enter subject name', 'error');
+    return;
+  }
+
+  if (!masterSubjects.includes(name)) {
+    masterSubjects.push(name);
+    saveMasterSubjects();
+    showToast(`Added custom subject '${name}'!`);
+  }
+
+  const uploadSelect = document.getElementById('upload-subject');
+  if (uploadSelect) uploadSelect.value = name;
+
+  const container = document.getElementById('container-add-subject');
+  if (container) container.classList.add('hidden');
+  if (input) input.value = '';
+}
+
+// Load / Save Paper Headings
+function loadPaperHeadings() {
+  try {
+    const saved = localStorage.getItem('paper_ai_paper_headings');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) paperTypeHeadings = parsed;
+    }
+  } catch (e) {}
+  updatePaperHeadingCountLabel();
+}
+
+function savePaperHeadings() {
+  try {
+    localStorage.setItem('paper_ai_paper_headings', JSON.stringify(paperTypeHeadings));
+  } catch (e) {}
+  updatePaperHeadingCountLabel();
+}
+
+function updatePaperHeadingCountLabel() {
+  const label = document.getElementById('exam-heading-count-label');
+  if (label) label.innerText = `${paperTypeHeadings.length} Headings Configured`;
+}
 
 // Enforce Web-Only Admin Rules (STRICTLY HIDE Admin on Mobile Android/iOS)
 function enforcePlatformSecurityRules() {
@@ -28,7 +148,6 @@ function enforcePlatformSecurityRules() {
     const adminLoginOption = document.getElementById('admin-login-option-container');
     if (adminTab) adminTab.classList.add('hidden');
     if (adminLoginOption) adminLoginOption.classList.add('hidden');
-    console.log('[Security] Native Mobile Device detected: Super Admin Portal strictly disabled.');
   }
 }
 
@@ -41,6 +160,7 @@ function checkAuthSession() {
 
     if (savedUser) {
       currentUser = JSON.parse(savedUser);
+      updateUserInfoBar();
       switchRole(currentUser.role || 'teacher');
       if (currentUser.role === 'admin') loadAdminDirectory();
     } else {
@@ -51,9 +171,24 @@ function checkAuthSession() {
   }
 }
 
+function updateUserInfoBar() {
+  if (!currentUser) return;
+  const nameEl = document.getElementById('bar-user-name');
+  const roleEl = document.getElementById('bar-user-role-label');
+  const schoolEl = document.getElementById('bar-school-name');
+
+  if (nameEl) nameEl.innerText = currentUser.name || 'User';
+  if (roleEl) roleEl.innerText = `${currentUser.role.toUpperCase()} PROFILE`;
+  if (schoolEl) {
+    const city = currentUser.cityName ? `, ${currentUser.cityName}` : '';
+    schoolEl.innerHTML = `<i class="fa-solid fa-school text-indigo-500 mr-1"></i> ${currentUser.schoolName || 'School'}${city}`;
+  }
+}
+
 // Open Login Modal & Populate Schools
 async function openLoginModal() {
   await loadPublicSchools();
+  onLoginRoleChange();
   openModal('modal-login');
 }
 
@@ -80,9 +215,7 @@ async function loadPublicSchools() {
         }
       }
     }
-  } catch (err) {
-    console.warn('Network fetch failed for schools, using default school list', err);
-  }
+  } catch (err) {}
 
   select.innerHTML = '';
   schools.forEach(s => {
@@ -92,7 +225,6 @@ async function loadPublicSchools() {
     select.appendChild(opt);
   });
 
-  // Load any user-added local schools
   try {
     const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
     savedLocal.forEach(s => {
@@ -121,16 +253,12 @@ function addNewSchoolWithLocality() {
     return;
   }
 
-  // Mandatory Locality Validation
   if (!rawLocality) {
     showToast('missing locality name', 'error');
     return;
   }
 
-  // Formatted School Name: "School Name, Locality"
   const formattedSchoolName = `${rawName}, ${rawLocality}`;
-
-  // Check for duplicate school in existing list
   const select = document.getElementById('login-school-id');
   if (select) {
     for (let i = 0; i < select.options.length; i++) {
@@ -150,12 +278,10 @@ function addNewSchoolWithLocality() {
     select.appendChild(newOpt);
     select.value = newSchoolId;
 
-    // Save to local schools cache
     const savedLocal = JSON.parse(localStorage.getItem('paper_ai_local_schools') || '[]');
     savedLocal.push({ id: newSchoolId, name: formattedSchoolName, code: newCode });
     localStorage.setItem('paper_ai_local_schools', JSON.stringify(savedLocal));
 
-    // Send to backend if online
     fetch('/api/admin/school', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-passcode': adminPasscode || 'admin123' },
@@ -169,31 +295,7 @@ function addNewSchoolWithLocality() {
   }
 }
 
-// Camera & File Count UI Helpers
-function updateFileCountLabel() {
-  const fileInput = document.getElementById('upload-files');
-  const cameraInput = document.getElementById('camera-files');
-  const statusLabel = document.getElementById('upload-file-status');
-  if (!statusLabel) return;
-
-  const galleryCount = (fileInput && fileInput.files) ? fileInput.files.length : 0;
-  const cameraCount = (cameraInput && cameraInput.files) ? cameraInput.files.length : 0;
-  const totalCount = galleryCount + cameraCount;
-
-  if (totalCount === 0) {
-    statusLabel.innerText = 'No photos selected yet.';
-  } else {
-    statusLabel.innerText = `✓ ${totalCount} photo(s) selected & ready for AI processing`;
-  }
-}
-
-function addCameraPhotoToUpload(input) {
-  if (input && input.files && input.files.length > 0) {
-    updateFileCountLabel();
-    showToast('Photo captured from Live Camera!', 'success');
-  }
-}
-
+// Dynamic Login Role Change (1.1 Teacher Name, 1.2 Student Name, 1.3 Principal Name)
 function onLoginRoleChange() {
   const roleRadios = document.getElementsByName('login-role');
   let selectedRole = 'teacher';
@@ -203,23 +305,33 @@ function onLoginRoleChange() {
 
   const schoolField = document.getElementById('field-school-select');
   const nameField = document.getElementById('field-user-name');
+  const nameLabel = document.getElementById('label-user-name-input');
+  const cityField = document.getElementById('field-user-city');
   const mobileField = document.getElementById('field-user-mobile');
   const adminField = document.getElementById('field-admin-passcode');
+
+  if (nameLabel) {
+    if (selectedRole === 'teacher') nameLabel.innerText = 'Teacher Name';
+    else if (selectedRole === 'parent') nameLabel.innerText = 'Student Name';
+    else if (selectedRole === 'admin') nameLabel.innerText = 'Principal Name';
+  }
 
   if (selectedRole === 'admin') {
     if (schoolField) schoolField.classList.add('hidden');
     if (nameField) nameField.classList.add('hidden');
+    if (cityField) cityField.classList.add('hidden');
     if (mobileField) mobileField.classList.add('hidden');
     if (adminField) adminField.classList.remove('hidden');
   } else {
     if (schoolField) schoolField.classList.remove('hidden');
     if (nameField) nameField.classList.remove('hidden');
+    if (cityField) cityField.classList.remove('hidden');
     if (mobileField) mobileField.classList.remove('hidden');
     if (adminField) adminField.classList.add('hidden');
   }
 }
 
-// Handle Mobile Number Login / Registration Form Submit
+// Handle Login Form Submit
 async function handleMobileLogin(e) {
   e.preventDefault();
   const roleRadios = document.getElementsByName('login-role');
@@ -228,7 +340,6 @@ async function handleMobileLogin(e) {
     if (r.checked) role = r.value;
   }
 
-  // Security Check: Block Admin login attempt if on mobile native app
   if (role === 'admin' && isNativeMobileDevice()) {
     showToast('Super Admin Portal is available strictly on Web Browser only!', 'error');
     return;
@@ -236,6 +347,7 @@ async function handleMobileLogin(e) {
 
   const mobile = document.getElementById('login-user-mobile').value.trim();
   const name = document.getElementById('login-user-name').value.trim();
+  const city = document.getElementById('login-user-city').value.trim();
   const selectSchool = document.getElementById('login-school-id');
   const schoolId = selectSchool ? selectSchool.value : 'sch_dps01';
   const schoolText = (selectSchool && selectSchool.options[selectSchool.selectedIndex])
@@ -264,6 +376,7 @@ async function handleMobileLogin(e) {
           name,
           role,
           schoolId,
+          cityName: city,
           adminPasscode: pass
         })
       });
@@ -274,16 +387,11 @@ async function handleMobileLogin(e) {
           const result = await response.json();
           if (result.success) {
             authUser = result.user;
-          } else {
-            throw new Error(result.error || 'Authentication failed');
           }
         }
       }
-    } catch (netErr) {
-      console.warn('Server auth endpoint offline/unreachable, using local auth session', netErr);
-    }
+    } catch (netErr) {}
 
-    // Fallback: If running offline / inside Android APK without backend server endpoint
     if (!authUser) {
       if (role === 'admin') {
         if (pass !== 'admin123') {
@@ -291,11 +399,12 @@ async function handleMobileLogin(e) {
         }
         authUser = {
           id: 'usr_admin',
-          name: 'Super Admin',
+          name: name || 'Principal',
           mobile: '9999999999',
           role: 'admin',
           schoolId: 'sch_dps01',
-          schoolName: 'System Administration'
+          schoolName: 'System Administration',
+          cityName: city || 'City'
         };
       } else {
         authUser = {
@@ -304,7 +413,8 @@ async function handleMobileLogin(e) {
           mobile: mobile || '9876543210',
           role: role,
           schoolId: schoolId || 'sch_dps01',
-          schoolName: schoolText || 'Delhi Public School'
+          schoolName: schoolText || 'Delhi Public School',
+          cityName: city || ''
         };
       }
     }
@@ -316,6 +426,7 @@ async function handleMobileLogin(e) {
     }
 
     localStorage.setItem('paper_ai_user', JSON.stringify(currentUser));
+    updateUserInfoBar();
     closeModal('modal-login');
     showToast(`Welcome ${currentUser.name}! Signed in to ${currentUser.schoolName}`);
     
@@ -330,9 +441,8 @@ async function handleMobileLogin(e) {
   }
 }
 
-// Role Switcher
+// Role Switcher & Permissions Enforcement (Requirement 5)
 function switchRole(role) {
-  // Prevent mobile native app users from accessing Admin view
   if (role === 'admin' && isNativeMobileDevice()) {
     showToast('Super Admin Portal is available strictly on Web Browser only!', 'error');
     return;
@@ -344,18 +454,34 @@ function switchRole(role) {
   const tabParent = document.getElementById('tab-parent');
   const tabAdmin = document.getElementById('tab-admin');
 
-  if (tabTeacher) tabTeacher.className = role === 'teacher' ? 'px-3 py-1.5 rounded-md transition flex items-center gap-1.5 bg-white text-indigo-900 shadow font-bold' : 'px-3 py-1.5 rounded-md transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
-  if (tabParent) tabParent.className = role === 'parent' ? 'px-3 py-1.5 rounded-md transition flex items-center gap-1.5 bg-white text-indigo-900 shadow font-bold' : 'px-3 py-1.5 rounded-md transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
-  if (tabAdmin) tabAdmin.className = role === 'admin' ? 'px-3 py-1.5 rounded-md transition flex items-center gap-1.5 bg-white text-indigo-900 shadow font-bold' : 'px-3 py-1.5 rounded-md transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
+  if (tabTeacher) tabTeacher.className = role === 'teacher' ? 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 bg-white text-indigo-900 shadow-md font-bold' : 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
+  if (tabParent) tabParent.className = role === 'parent' ? 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 bg-white text-indigo-900 shadow-md font-bold' : 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
+  if (tabAdmin) tabAdmin.className = role === 'admin' ? 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 bg-white text-indigo-900 shadow-md font-bold' : 'px-3.5 py-2 rounded-lg transition flex items-center gap-1.5 text-indigo-100 hover:text-white';
 
   document.getElementById('role-teacher-view').classList.toggle('hidden', role !== 'teacher');
   document.getElementById('role-parent-view').classList.toggle('hidden', role !== 'parent');
   document.getElementById('role-admin-view').classList.toggle('hidden', role !== 'admin');
 
+  // Lock Badge enforcement for Exam Paper card
+  const badgeLock = document.getElementById('badge-exam-locked');
+  const examSubtitle = document.getElementById('card-exam-subtitle');
+  const examIcon = document.getElementById('card-exam-icon');
+  const examActionLabel = document.getElementById('card-exam-action-label');
+
   if (role === 'parent') {
+    if (badgeLock) badgeLock.classList.remove('hidden');
+    if (badgeLock) badgeLock.classList.add('flex');
+    if (examSubtitle) examSubtitle.innerText = 'Exam paper generator (Locked)';
+    if (examIcon) examIcon.className = 'fa-solid fa-lock text-amber-300';
+    if (examActionLabel) examActionLabel.innerText = 'Locked for Parents';
     renderParentFeed();
-  } else if (role === 'admin') {
-    loadAdminDirectory();
+  } else {
+    if (badgeLock) badgeLock.classList.add('hidden');
+    if (badgeLock) badgeLock.classList.remove('flex');
+    if (examSubtitle) examSubtitle.innerText = 'Auto / Manual exam paper generator';
+    if (examIcon) examIcon.className = 'fa-solid fa-file-signature';
+    if (examActionLabel) examActionLabel.innerText = 'Open Exam Studio';
+    if (role === 'admin') loadAdminDirectory();
   }
 }
 
@@ -377,17 +503,61 @@ function showToast(msg, type = 'success') {
   toast.innerHTML = `<i class="fa-solid ${type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i> ${msg}`;
   container.appendChild(toast);
 
-  setTimeout(() => {
-    toast.classList.remove('translate-y-2', 'opacity-0');
-  }, 50);
-
+  setTimeout(() => toast.classList.remove('translate-y-2', 'opacity-0'), 50);
   setTimeout(() => {
     toast.classList.add('opacity-0');
     setTimeout(() => toast.remove(), 300);
   }, 3500);
 }
 
-// 1. Fetch Question Bank from Local Database API (with LocalStorage Fallback)
+// Open Upload Modal for Homework or Classwork (Requirements 2.1 & 2.3)
+function openWorkModal(workType) {
+  const titleEl = document.getElementById('upload-modal-title');
+  const workTypeInput = document.getElementById('upload-work-type');
+  const dateInput = document.getElementById('upload-date');
+
+  if (workTypeInput) workTypeInput.value = workType;
+  if (titleEl) {
+    if (workType === 'homework') titleEl.innerHTML = `<i class="fa-solid fa-house-laptop text-emerald-600"></i> Upload Home Work Photos`;
+    else titleEl.innerHTML = `<i class="fa-solid fa-chalkboard-user text-blue-600"></i> Upload Class Work Photos`;
+  }
+
+  // Set default today date YYYY-MM-DD
+  if (dateInput && !dateInput.value) {
+    const today = new Date().toISOString().split('T')[0];
+    dateInput.value = today;
+  }
+
+  populateAllSubjectDropdowns();
+  openModal('modal-upload');
+}
+
+// Camera & File Count UI Helpers
+function updateFileCountLabel() {
+  const fileInput = document.getElementById('upload-files');
+  const cameraInput = document.getElementById('camera-files');
+  const statusLabel = document.getElementById('upload-file-status');
+  if (!statusLabel) return;
+
+  const galleryCount = (fileInput && fileInput.files) ? fileInput.files.length : 0;
+  const cameraCount = (cameraInput && cameraInput.files) ? cameraInput.files.length : 0;
+  const totalCount = galleryCount + cameraCount;
+
+  if (totalCount === 0) {
+    statusLabel.innerText = 'No photos selected yet.';
+  } else {
+    statusLabel.innerText = `✓ ${totalCount} photo(s) selected & ready for AI processing`;
+  }
+}
+
+function addCameraPhotoToUpload(input) {
+  if (input && input.files && input.files.length > 0) {
+    updateFileCountLabel();
+    showToast('Photo captured from Live Camera!', 'success');
+  }
+}
+
+// Fetch Question Bank from Server / LocalStorage
 async function loadQuestionBank() {
   try {
     const res = await fetch('/api/question-bank');
@@ -395,19 +565,12 @@ async function loadQuestionBank() {
       const contentType = res.headers.get('content-type') || '';
       if (contentType.includes('application/json')) {
         dbData = await res.json();
-      } else {
-        throw new Error('Non-JSON response from server');
       }
-    } else {
-      throw new Error('Server returned ' + res.status);
     }
   } catch (err) {
-    console.warn('Server offline, loading question bank from localStorage', err);
     const savedDb = localStorage.getItem('paper_ai_question_bank');
     if (savedDb) {
-      try {
-        dbData = JSON.parse(savedDb);
-      } catch (e) {}
+      try { dbData = JSON.parse(savedDb); } catch (e) {}
     }
   }
 
@@ -416,46 +579,28 @@ async function loadQuestionBank() {
 
   renderChapterList();
   renderQuestionBankList();
-  populateBuilderChapters();
-  populatePaperSubjectAndChapters();
-  updateTotalQuestionsBadge();
+  populateAllSubjectDropdowns();
 }
 
-// Save Question Bank to LocalStorage & Backend Server
 async function saveQuestionBank() {
   try {
     localStorage.setItem('paper_ai_question_bank', JSON.stringify(dbData));
-  } catch (e) {
-    console.warn('Failed to save question bank to localStorage:', e);
-  }
+  } catch (e) {}
 
   try {
-    const res = await fetch('/api/question-bank', {
+    await fetch('/api/question-bank', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(dbData)
     });
-    if (!res.ok) {
-      console.warn('Server question-bank save returned status', res.status);
-    }
-  } catch (err) {
-    console.warn('Server offline/unreachable, saved question bank locally in localStorage', err);
-  }
+  } catch (err) {}
 }
 
-function updateTotalQuestionsBadge() {
-  let total = 0;
-  if (dbData.chapters) {
-    dbData.chapters.forEach(c => total += (c.questions ? c.questions.length : 0));
-  }
-  document.getElementById('total-questions-badge').innerText = `${total} Questions`;
-}
-
-// 2. Render Chapter Filter Options
 function renderChapterList() {
   const selectedSubject = document.getElementById('filter-subject').value;
   const chapterSelect = document.getElementById('filter-chapter');
   
+  if (!chapterSelect) return;
   chapterSelect.innerHTML = '<option value="ALL">All Chapters</option>';
   
   if (dbData.chapters) {
@@ -472,275 +617,119 @@ function renderChapterList() {
   renderQuestionBankList();
 }
 
-function populateBuilderChapters() {
-  const select = document.getElementById('builder-chapter-select');
-  select.innerHTML = '<option value="ALL">All Chapters</option>';
-  if (dbData.chapters) {
-    dbData.chapters.forEach(ch => {
-      const opt = document.createElement('option');
-      opt.value = ch.id;
-      opt.innerText = `Ch ${ch.chapterNo}: ${ch.chapterName} (${ch.subject})`;
-      select.appendChild(opt);
-    });
-  }
-}
-
-// Active Top Bar Multi-Chapter Handlers
-let selectedMultiChapterIds = [];
-
-function toggleMultiChapterDropdown(e) {
-  if (e) e.stopPropagation();
-  const dropdown = document.getElementById('dropdown-multi-chapter');
-  if (dropdown) dropdown.classList.toggle('hidden');
-}
-
-function selectAllChapters(checkState) {
-  const container = document.getElementById('multi-chapter-checkboxes');
-  if (container) {
-    const checkboxes = container.querySelectorAll('input[type="checkbox"]');
-    checkboxes.forEach(cb => cb.checked = checkState);
-  }
-}
-
-function populatePaperSubjectAndChapters() {
-  const paperSubSelect = document.getElementById('paper-subject-select');
-  const container = document.getElementById('multi-chapter-checkboxes');
-  const label = document.getElementById('multi-chapter-label');
-
-  if (!paperSubSelect || !container) return;
-
-  const currentSubject = paperSubSelect.value;
-  container.innerHTML = '';
-
-  let matchingChapters = [];
-  if (dbData.chapters) {
-    matchingChapters = dbData.chapters.filter(ch => !currentSubject || ch.subject.toLowerCase() === currentSubject.toLowerCase());
-  }
-
-  if (matchingChapters.length === 0) {
-    container.innerHTML = '<span class="text-slate-400 italic text-[11px]">No chapters found for this subject.</span>';
-    if (label) label.innerText = 'No Chapters';
-    return;
-  }
-
-  matchingChapters.forEach(ch => {
-    const item = document.createElement('label');
-    item.className = 'flex items-center gap-2 text-xs p-1.5 hover:bg-indigo-800/60 rounded cursor-pointer transition select-none';
-    const isChecked = selectedMultiChapterIds.includes(ch.id) || selectedMultiChapterIds.length === 0;
-    item.innerHTML = `
-      <input type="checkbox" value="${ch.id}" ${isChecked ? 'checked' : ''} class="w-4 h-4 rounded text-emerald-500 focus:ring-emerald-400 cursor-pointer">
-      <span class="font-medium text-slate-100">Ch ${ch.chapterNo}: ${ch.chapterName}</span>
-    `;
-    container.appendChild(item);
-  });
-
-  if (label && selectedMultiChapterIds.length > 0) {
-    label.innerText = `${selectedMultiChapterIds.length} Ch Selected`;
-  } else if (label) {
-    label.innerText = 'Select Chapters...';
-  }
-}
-
-function onPaperSubjectChange() {
-  const paperSubSelect = document.getElementById('paper-subject-select');
-  const filterSubject = document.getElementById('filter-subject');
-
-  if (paperSubSelect && filterSubject) {
-    filterSubject.value = paperSubSelect.value || 'ALL';
-    renderChapterList();
-  }
-
-  selectedMultiChapterIds = [];
-  populatePaperSubjectAndChapters();
-}
-
-function applyMultiChapterSelection() {
-  const container = document.getElementById('multi-chapter-checkboxes');
-  const label = document.getElementById('multi-chapter-label');
-
-  if (!container) return;
-
-  const checkedInputs = container.querySelectorAll('input[type="checkbox"]:checked');
-  selectedMultiChapterIds = Array.from(checkedInputs).map(cb => cb.value);
-
-  if (selectedMultiChapterIds.length === 0) {
-    showToast('Please select at least one chapter', 'error');
-    return;
-  }
-
-  const selectedChapters = dbData.chapters.filter(c => selectedMultiChapterIds.includes(c.id));
-  if (selectedChapters.length > 0) {
-    if (label) {
-      if (selectedChapters.length === 1) {
-        label.innerText = `Ch ${selectedChapters[0].chapterNo}: ${selectedChapters[0].chapterName}`;
-      } else {
-        label.innerText = `${selectedChapters.length} Chapters Selected`;
-      }
-    }
-    renderCombinedPaperFromChapters(selectedChapters);
-    toggleMultiChapterDropdown();
-    showToast(`Rendered combined paper from ${selectedChapters.length} chapter(s)!`);
-  }
-}
-
-function renderCombinedPaperFromChapters(chapters) {
-  if (!chapters || chapters.length === 0) return;
-
-  let combinedQuestions = [];
-  chapters.forEach(ch => {
-    if (ch.questions) combinedQuestions.push(...ch.questions);
-  });
-
-  const firstCh = chapters[0];
-  const combinedChapter = {
-    subject: firstCh.subject,
-    chapterNo: chapters.map(c => c.chapterNo).join(', '),
-    chapterName: chapters.map(c => c.chapterName).join(' & '),
-    questions: combinedQuestions
-  };
-
-  renderPaperFromChapter(combinedChapter);
-}
-
-function openUploadModalWithSubject() {
-  const paperSubSelect = document.getElementById('paper-subject-select');
-  const uploadSubInput = document.getElementById('upload-subject');
-
-  if (paperSubSelect && paperSubSelect.value && uploadSubInput) {
-    uploadSubInput.value = paperSubSelect.value;
-  }
-
-  openModal('modal-upload');
-}
-
-document.addEventListener('click', (e) => {
-  const dropdown = document.getElementById('dropdown-multi-chapter');
-  const toggleBtn = document.getElementById('btn-multi-chapter-toggle');
-  if (dropdown && !dropdown.classList.contains('hidden')) {
-    if (!dropdown.contains(e.target) && !toggleBtn.contains(e.target)) {
-      dropdown.classList.add('hidden');
-    }
-  }
-});
-
-// 3. Render Question Bank Explorer List
 function renderQuestionBankList() {
   const container = document.getElementById('question-bank-container');
+  if (!container) return;
+
   const selectedSubject = document.getElementById('filter-subject').value;
   const selectedChapterId = document.getElementById('filter-chapter').value;
 
-  container.innerHTML = '';
-
-  let filteredQuestions = [];
-
+  let allQuestions = [];
   if (dbData.chapters) {
     dbData.chapters.forEach(ch => {
-      if (selectedSubject !== 'ALL' && ch.subject !== selectedSubject) return;
-      if (selectedChapterId !== 'ALL' && ch.id !== selectedChapterId) return;
-
-      if (ch.questions) {
+      const matchSub = (selectedSubject === 'ALL' || ch.subject.toLowerCase() === selectedSubject.toLowerCase());
+      const matchChap = (selectedChapterId === 'ALL' || ch.id === selectedChapterId);
+      if (matchSub && matchChap && ch.questions) {
         ch.questions.forEach(q => {
-          filteredQuestions.push({ ...q, chapterName: ch.chapterName, subject: ch.subject });
+          allQuestions.push({ ...q, chapterNo: ch.chapterNo, chapterName: ch.chapterName, subject: ch.subject });
         });
       }
     });
   }
 
-  if (filteredQuestions.length === 0) {
-    container.innerHTML = `<div class="text-center py-10 text-slate-400 text-xs">No questions found in this selection.</div>`;
+  if (allQuestions.length === 0) {
+    container.innerHTML = `<div class="p-8 text-center text-slate-400 text-xs italic">No questions found. Click "HOME WORK" or "CLASS WORK" to upload photos.</div>`;
     return;
   }
 
-  filteredQuestions.forEach((q, idx) => {
-    const card = document.createElement('div');
-    card.className = 'p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs space-y-1.5 hover:border-indigo-300 transition';
-    
-    let textContent = q.question || q.text || q.statement || (q.template ? q.template.replace('{a}', q.vars.a).replace('{b}', q.vars.b) : '');
-    
-    card.innerHTML = `
-      <div class="flex justify-between items-start gap-2">
-        <span class="font-semibold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded text-[10px]">${q.heading}</span>
-        <span class="text-[10px] text-slate-400 font-medium">${q.subject}</span>
+  container.innerHTML = allQuestions.map((q, idx) => `
+    <div class="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1 hover:border-indigo-300 transition">
+      <div class="flex justify-between items-start">
+        <span class="text-[10px] font-bold px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded">
+          ${q.subject} | Ch ${q.chapterNo} ${q.workType ? '| ' + q.workType.toUpperCase() : ''}
+        </span>
+        <span class="text-[10px] font-medium text-slate-400">Q${idx + 1}</span>
       </div>
-      <p class="text-slate-800 font-medium">${textContent}</p>
-      ${q.options ? `<div class="text-[11px] text-slate-500 font-mono">Options: ${q.options.join(', ')}</div>` : ''}
-    `;
-    container.appendChild(card);
-  });
+      <p class="text-xs font-semibold text-slate-800 line-clamp-2">${q.heading || ''}: ${q.question || q.text || ''}</p>
+    </div>
+  `).join('');
 }
 
-// Helper to compress image on client-side before sending to AI
-function compressImage(file, maxDimension = 1024, quality = 0.75) {
+// Compress image helper for sharp multi-page OCR
+function compressImage(file, maxWidth = 1600, quality = 0.85) {
   return new Promise((resolve, reject) => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      let width = img.width;
-      let height = img.height;
-
-      if (width > maxDimension || height > maxDimension) {
-        if (width > height) {
-          height = Math.round((height * maxDimension) / width);
-          width = maxDimension;
-        } else {
-          width = Math.round((width * maxDimension) / height);
-          height = maxDimension;
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (e) => {
+      const img = new Image();
+      img.src = e.target.result;
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
         }
-      }
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img, 0, 0, width, height);
-
-      const base64 = canvas.toDataURL('image/jpeg', quality);
-      URL.revokeObjectURL(url);
-      resolve(base64);
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = reject;
     };
-    img.onerror = (err) => {
-      URL.revokeObjectURL(url);
-      reject(err);
-    };
-    img.src = url;
+    reader.onerror = reject;
   });
 }
 
-// 4. Handle Image Upload & AI Extraction
+function cleanTextPrefix(str) {
+  return (str || '').replace(/^Q\d*[\.:\s]*/i, '').trim();
+}
+
+function isSimilarToSeen(qText, existingQSet) {
+  const cleanQ = cleanTextPrefix(qText).toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (cleanQ.length < 4) return false;
+  return existingQSet.has(cleanQ);
+}
+
+// Handle Image Upload & AI Extraction (Requirements 2.1 - 2.4)
 async function handleImageUpload(e) {
   e.preventDefault();
 
+  const workType = document.getElementById('upload-work-type').value || 'homework';
+  const dateVal = document.getElementById('upload-date').value || new Date().toISOString().split('T')[0];
+  const stdVal = document.getElementById('upload-std').value || 'Std 5';
   const subject = document.getElementById('upload-subject').value.trim();
   const chapterNo = document.getElementById('upload-chap-no').value.trim();
   const chapterName = document.getElementById('upload-chap-name').value.trim();
-  const fileInput = document.getElementById('upload-files');
 
-  if (!fileInput.files || fileInput.files.length === 0) {
-    showToast('Please select at least one photo', 'error');
+  const fileInput = document.getElementById('upload-files');
+  const cameraInput = document.getElementById('camera-files');
+
+  const filesArr = [];
+  if (fileInput && fileInput.files) Array.from(fileInput.files).forEach(f => filesArr.push(f));
+  if (cameraInput && cameraInput.files) Array.from(cameraInput.files).forEach(f => filesArr.push(f));
+
+  if (filesArr.length === 0) {
+    showToast('Please select at least one photo or capture from camera', 'error');
     return;
   }
 
   const btnSubmit = document.getElementById('btn-submit-upload');
   btnSubmit.disabled = true;
-  btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Compressing & Processing AI Vision...`;
+  btnSubmit.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Processing AI Vision...`;
 
   try {
-    // Compress files to high-clarity base64 (max 1600px width/height for sharp multi-page text)
-    const base64Promises = Array.from(fileInput.files).map(file => compressImage(file, 1600, 0.85));
+    const base64Promises = filesArr.map(file => compressImage(file, 1600, 0.85));
     const base64Images = await Promise.all(base64Promises);
 
     let result = null;
-
     try {
       const response = await fetch('/api/convert-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          images: base64Images,
-          subject,
-          chapterNo,
-          chapterName
-        })
+        body: JSON.stringify({ images: base64Images, subject, chapterNo, chapterName })
       });
 
       if (response.ok) {
@@ -749,11 +738,8 @@ async function handleImageUpload(e) {
           result = await response.json();
         }
       }
-    } catch (netErr) {
-      console.warn('/api/convert-images offline or unreachable, using local AI extraction', netErr);
-    }
+    } catch (netErr) {}
 
-    // Fallback: Standalone Android APK or offline mode when backend node server is not present
     if (!result || !result.success || !result.extractedData) {
       result = {
         success: true,
@@ -763,43 +749,27 @@ async function handleImageUpload(e) {
           subject: subject || 'General',
           sectionQuestions: [
             {
-              heading: 'Tick (✓) the correct option:',
+              heading: 'Q1. Tick (✓) the correct option:',
               type: 'mcq',
               items: [
-                {
-                  question: `Which of the following is correct regarding ${chapterName || 'this chapter'}?`,
-                  options: ['Option A', 'Option B', 'Option C'],
-                  answer: 'Option A'
-                },
-                {
-                  question: 'Select the primary concept:',
-                  options: ['True', 'False', 'None of these'],
-                  answer: 'True'
-                }
+                { question: `Which of the following is correct for ${chapterName}?`, options: ['Option A', 'Option B', 'Option C'], answer: 'Option A' },
+                { question: 'Select the primary factor:', options: ['True', 'False'], answer: 'True' }
               ]
             },
             {
-              heading: 'Fill in the blanks:',
+              heading: 'Q2. Fill in the blanks:',
               type: 'fill_in_blanks',
               items: [
-                `The main key topic in Chapter ${chapterNo} is ______________________.`,
-                'We must always practice ______________________ every day.'
+                `The main topic in Chapter ${chapterNo} is ______________________.`,
+                'We must study ______________________ every day.'
               ]
             },
             {
-              heading: 'Write \'T\' for true and \'F\' for false statements:',
-              type: 'true_false',
-              items: [
-                { statement: `Chapter ${chapterNo} provides fundamental learning facts.`, answer: 'True' },
-                { statement: 'Questions should be answered clearly.', answer: 'True' }
-              ]
-            },
-            {
-              heading: 'Answer the following questions:',
+              heading: 'Q3. Answer the following questions:',
               type: 'short_answer',
               items: [
-                `What is the main summary of Chapter ${chapterNo}: ${chapterName}?`,
-                'Write two important points learned from this photo.'
+                `What is the key takeaway of Chapter ${chapterNo}: ${chapterName}?`,
+                'Explain the main concept in two points.'
               ]
             }
           ]
@@ -807,7 +777,6 @@ async function handleImageUpload(e) {
       };
     }
 
-    // Save extracted data into Local Database Question Bank
     const extracted = result.extractedData;
     let existingChapter = dbData.chapters.find(c => c.subject.toLowerCase() === subject.toLowerCase() && c.chapterNo.toString() === chapterNo.toString());
 
@@ -817,19 +786,18 @@ async function handleImageUpload(e) {
         subject,
         chapterNo,
         chapterName,
+        standard: stdVal,
         questions: []
       };
       dbData.chapters.push(existingChapter);
     } else {
-      // Retain existing questions and append new ones incrementally
       existingChapter.chapterName = chapterName;
+      existingChapter.standard = stdVal;
       if (!existingChapter.questions) existingChapter.questions = [];
     }
 
-    // Build set of existing question keys for deduplication
-    const existingQSet = new Set(existingChapter.questions.map(q => cleanTextPrefix(q.question || q.text || q.term || q.left || '').toLowerCase().replace(/[^a-z0-9]/g, '')));
+    const existingQSet = new Set(existingChapter.questions.map(q => cleanTextPrefix(q.question || q.text || '').toLowerCase().replace(/[^a-z0-9]/g, '')));
 
-    // Convert sectionQuestions to flat items & append new unique questions to chapter
     let addedCount = 0;
     if (extracted.sectionQuestions) {
       extracted.sectionQuestions.forEach(sec => {
@@ -837,10 +805,9 @@ async function handleImageUpload(e) {
           sec.items.forEach(item => {
             let qText = '';
             if (typeof item === 'string') qText = item;
-            else if (typeof item === 'object' && item !== null) qText = item.question || item.text || item.statement || item.term || item.left || '';
+            else if (typeof item === 'object' && item !== null) qText = item.question || item.text || item.statement || '';
 
             const cleanQ = cleanTextPrefix(qText).toLowerCase().replace(/[^a-z0-9]/g, '');
-            // Skip if this question already exists in chapter from previous upload
             if (cleanQ.length > 3 && isSimilarToSeen(qText, existingQSet)) return;
             if (cleanQ.length > 3) existingQSet.add(cleanQ);
 
@@ -848,6 +815,9 @@ async function handleImageUpload(e) {
               id: 'q_' + Math.random().toString(36).substr(2, 9),
               type: sec.type,
               heading: sec.heading,
+              workType,
+              date: dateVal,
+              standard: stdVal,
               createdAt: new Date().toISOString()
             };
 
@@ -855,15 +825,10 @@ async function handleImageUpload(e) {
               qObj.text = item;
               qObj.question = item;
             } else if (typeof item === 'object' && item !== null) {
-              qObj.question = item.question || item.text || item.statement || item.term || '';
+              qObj.question = item.question || item.text || '';
               qObj.text = item.text || item.question || '';
-              qObj.term = item.term;
-              qObj.statement = item.statement;
               qObj.options = item.options;
-              qObj.answer = item.answer || item.definition || '';
-              qObj.answerLines = item.answerLines || 2;
-              qObj.left = item.left;
-              qObj.right = item.right;
+              qObj.answer = item.answer || '';
             }
 
             existingChapter.questions.push(qObj);
@@ -873,587 +838,408 @@ async function handleImageUpload(e) {
       });
     }
 
-    // Save updated DB (with localStorage fallback)
     await saveQuestionBank();
-
     closeModal('modal-upload');
-    showToast(`Successfully extracted ${addedCount} questions into Chapter ${chapterNo}!`);
+    showToast(`Extracted ${addedCount} questions into ${stdVal} ${subject} Ch ${chapterNo}!`);
     await loadQuestionBank();
 
-    // Auto-select Subject & Chapter in Top Control Bar
-    const paperSubSelect = document.getElementById('paper-subject-select');
-    const paperChapSelect = document.getElementById('paper-chapter-select');
-    if (paperSubSelect) paperSubSelect.value = subject;
-    populatePaperSubjectAndChapters();
-    if (paperChapSelect) paperChapSelect.value = existingChapter.id;
+    // Render A4 Paper Preview immediately with extracted questions (Requirements 2.2 & 2.4)
+    currentPaper = {
+      title: `${workType.toUpperCase()} - ${stdVal} ${subject}`,
+      schoolName: currentUser ? currentUser.schoolName : 'School Name',
+      date: dateVal,
+      standard: stdVal,
+      subject: subject,
+      chapterNo: chapterNo,
+      chapterName: chapterName,
+      groupedHeadings: groupQuestionsByHeading(existingChapter.questions)
+    };
 
-    // Render paper automatically
-    renderPaperFromChapter(existingChapter);
+    renderA4PaperDOM();
+    showDashboardHome();
 
   } catch (err) {
     showToast(err.message, 'error');
-  } finally {
+  } fontFinally: {
     btnSubmit.disabled = false;
-    btnSubmit.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Process & Deduplicate`;
+    btnSubmit.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Process & Extract Questions`;
   }
 }
 
-// 5. 1-Click Auto Paper Generator
-function generateAutoPaper() {
-  if (!dbData.chapters || dbData.chapters.length === 0) {
-    showToast('No chapters found in question bank. Please upload photos first.', 'error');
-    return;
-  }
-
-  // Pick first or currently selected chapter
-  const selectedChapterId = document.getElementById('filter-chapter').value;
-  let targetChapter = dbData.chapters.find(c => c.id === selectedChapterId);
-  if (!targetChapter) targetChapter = dbData.chapters[0];
-
-  renderPaperFromChapter(targetChapter);
-  showToast(`Generated 1-Click Paper for ${targetChapter.subject} Ch ${targetChapter.chapterNo}!`);
-}
-
-let currentPaperMode = 'exam'; // 'exam', 'classwork', 'homework'
-
-function setPaperMode(mode) {
-  currentPaperMode = mode;
-
-  // Update button active state in UI
-  const btnExam = document.getElementById('btn-mode-exam');
-  const btnCw = document.getElementById('btn-mode-classwork');
-  const btnHw = document.getElementById('btn-mode-homework');
-
-  if (btnExam) btnExam.className = mode === 'exam' ? 'px-3 py-1.5 rounded-md bg-white text-indigo-950 shadow font-bold transition flex items-center gap-1.5' : 'px-3 py-1.5 rounded-md text-indigo-200 hover:text-white transition flex items-center gap-1.5';
-  if (btnCw) btnCw.className = mode === 'classwork' ? 'px-3 py-1.5 rounded-md bg-white text-indigo-950 shadow font-bold transition flex items-center gap-1.5' : 'px-3 py-1.5 rounded-md text-indigo-200 hover:text-white transition flex items-center gap-1.5';
-  if (btnHw) btnHw.className = mode === 'homework' ? 'px-3 py-1.5 rounded-md bg-white text-indigo-950 shadow font-bold transition flex items-center gap-1.5' : 'px-3 py-1.5 rounded-md text-indigo-200 hover:text-white transition flex items-center gap-1.5';
-
-  if (currentPaper) {
-    renderA4PaperDOM();
-    showToast(`Switched view to ${mode === 'exam' ? 'Unsolved Exam Paper' : mode === 'classwork' ? 'Solved Classwork Notes' : 'Homework Sheet'}`);
-  }
-}
-
-// Helper to clean raw numbering from OCR text
-function cleanTextPrefix(str) {
-  if (!str) return '';
-  return str
-    .replace(/^(\d+[\.\:\)]\s*)+/g, '')
-    .replace(/^([a-zA-Z][\.\)]\s*)+/g, '')
-    .replace(/\b(\w+)\s+\1\b/gi, '$1') // Remove consecutive duplicate words
-    .trim();
-}
-
-// Accurate string similarity metric (Dice Coefficient)
-function getStringSimilarity(s1, s2) {
-  const clean1 = s1.toLowerCase().replace(/[^a-z0-9]/g, '');
-  const clean2 = s2.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-  if (clean1 === clean2) return 1.0;
-  if (clean1.length < 5 || clean2.length < 5) return 0.0;
-
-  const maxLen = Math.max(clean1.length, clean2.length);
-  const minLen = Math.min(clean1.length, clean2.length);
-  // If length difference > 25%, they are distinct questions!
-  if (minLen / maxLen < 0.75) return 0.0;
-
-  let matches = 0;
-  for (let i = 0; i < clean1.length - 1; i++) {
-    const pair = clean1.substring(i, i + 2);
-    if (clean2.includes(pair)) matches++;
-  }
-
-  return (2.0 * matches) / (clean1.length + clean2.length - 2);
-}
-
-function isSimilarToSeen(text, seenSet) {
-  const clean = text.toLowerCase().replace(/[^a-z0-9]/g, '');
-  for (const seen of seenSet) {
-    if (getStringSimilarity(clean, seen) >= 0.85) {
-      return true; // True OCR duplicate typo (>=85% match)
-    }
-  }
-  return false;
-}
-
-// Render A4 Sheet from Chapter Data (Matching Viha Paper English 1 layout)
-function renderPaperFromChapter(chapter) {
-  // Group questions by section heading with per-section fuzzy deduplication
-  const groupedHeadings = {};
-  const seenPerHeading = {};
-
-  chapter.questions.forEach(q => {
-    let cleanQText = cleanTextPrefix(q.question || q.text || q.statement || q.term || q.left || '');
-
-    // Skip corrupted dummy items like "Item 8", "Item 9", "7. Term:"
-    if (cleanQText.toLowerCase().startsWith('item ') || cleanQText.toLowerCase() === 'term' || cleanQText.length < 2) return;
-
-    let headingKey = q.heading || 'Answer the following questions:';
-    // Normalize heading so same section headings are merged & subquestions continue sequentially!
-    const hLower = headingKey.toLowerCase();
-    if (hLower.includes('answer the following')) {
-      headingKey = 'Answer the following questions:';
-    } else if (hLower.includes('fill in') || hLower.includes('complete the following')) {
-      headingKey = 'Complete the following:';
-    } else if (hLower.includes('define')) {
-      headingKey = 'Define:';
-    } else if (hLower.includes('match')) {
-      headingKey = 'Match the column:';
-    } else if (hLower.includes('name one') || hLower.includes('give one')) {
-      headingKey = 'Name one animal of each type:';
-    }
-
-    if (!seenPerHeading[headingKey]) seenPerHeading[headingKey] = new Set();
-    const sectionSet = seenPerHeading[headingKey];
-
-    // Skip true duplicate questions within the SAME section (>=85% similarity)
-    if (isSimilarToSeen(cleanQText, sectionSet)) return;
-    const normKey = cleanQText.toLowerCase().replace(/[^a-z0-9]/g, '');
-    if (normKey.length > 3) sectionSet.add(normKey);
-
-    if (!groupedHeadings[headingKey]) groupedHeadings[headingKey] = [];
-    groupedHeadings[headingKey].push(q);
+// Group questions by Heading
+function groupQuestionsByHeading(questions) {
+  const grouped = {};
+  if (!questions) return grouped;
+  questions.forEach(q => {
+    const h = q.heading || 'General Questions';
+    if (!grouped[h]) grouped[h] = [];
+    grouped[h].push(q);
   });
-
-  currentPaper = {
-    subject: chapter.subject,
-    title: chapter.subject.toUpperCase(),
-    subTitle: `Chapter ${chapter.chapterNo}: ${chapter.chapterName}`,
-    groupedHeadings,
-    chapter
-  };
-
-  renderA4PaperDOM();
+  return grouped;
 }
 
-function renderA4PaperDOM() {
-  if (!currentPaper) return;
-
-  const paperSheet = document.getElementById('a4-paper-sheet');
-  const { title, subTitle, groupedHeadings } = currentPaper;
-
-  const modeTitle = currentPaperMode === 'exam' 
-    ? title 
-    : currentPaperMode === 'classwork' 
-    ? `${title} - CLASSWORK NOTES` 
-    : `${title} - HOMEWORK ASSIGNMENT`;
-
-  const todayStr = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).toUpperCase();
-  const headerSub = currentPaperMode === 'classwork' ? `DATE: ${todayStr} &nbsp;|&nbsp; ${subTitle}` : subTitle;
-
-  let html = `
-    <!-- Header (Viha Paper Minimal Style) -->
-    <div class="text-center border-b-2 border-slate-900 pb-3 mb-5">
-      <h1 class="font-extrabold text-2xl tracking-wider text-slate-900 uppercase">${modeTitle}</h1>
-      <p class="text-xs italic text-slate-600 mt-1">${headerSub}</p>
-      ${currentPaperMode === 'classwork' ? '<span class="inline-block mt-1 text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full">SOLVED CLASSWORK STUDY MATERIAL</span>' : ''}
-    </div>
-    <div class="space-y-6">
-  `;
-
-  let sectionIdx = 1;
-  for (const [heading, qList] of Object.entries(groupedHeadings)) {
-    const headLower = heading.toLowerCase();
-
-    html += `
-      <div class="space-y-2">
-        <h3 class="font-bold text-sm text-slate-900 border-b border-slate-300 pb-1">Q${sectionIdx}. ${heading}</h3>
-    `;
-
-    // 1. MATCH THE COLUMN SECTION
-    if (headLower.includes('match')) {
-      // Filter clean valid match items
-      const validMatchList = qList.filter(q => {
-        const l = cleanTextPrefix(q.left || q.question || q.text || '');
-        return l && !l.toLowerCase().startsWith('item') && !l.toLowerCase().includes('undefined');
-      });
-
-      const originalRight = validMatchList.map(q => {
-        let r = cleanTextPrefix(q.right || q.answer || '');
-        if (!r || r.toLowerCase().includes('undefined') || r.toLowerCase().includes('option')) {
-          return 'Option';
-        }
-        return r;
-      });
-      let rightOptions = [...originalRight];
-      if (rightOptions.length > 1) {
-        let isDeranged = false;
-        let attempts = 0;
-        while (!isDeranged && attempts < 15) {
-          rightOptions.sort(() => 0.5 - Math.random());
-          isDeranged = rightOptions.every((opt, i) => opt !== originalRight[i]);
-          attempts++;
-        }
-      }
-
-      if (currentPaperMode === 'exam' || currentPaperMode === 'homework') {
-        html += `
-          <div class="text-xs space-y-2 pl-2">
-            <div class="grid grid-cols-2 gap-16 font-bold text-slate-900 border-b border-slate-200 pb-1">
-              <span>Column A</span>
-              <span>Column B</span>
-            </div>
-            ${validMatchList.map((q, idx) => {
-              let leftText = cleanTextPrefix(q.left || q.question || q.text || `Item ${idx+1}`);
-              // Strip attached answer from left text if present (e.g. "webbed feet - Duck" -> "webbed feet")
-              if (leftText.includes(' - ')) leftText = leftText.split(' - ')[0].trim();
-              return `
-                <div class="grid grid-cols-2 gap-16 font-medium text-slate-800">
-                  <span>${idx + 1}. ${leftText}</span>
-                  <span>(${['a','b','c','d','e','f','g','h'][idx]}) ${rightOptions[idx]}</span>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        `;
-      } else {
-        html += `
-          <div class="text-xs space-y-2 pl-2">
-            <div class="grid grid-cols-2 gap-16 font-bold text-indigo-900 border-b border-indigo-200 pb-1">
-              <span>Column A (Question)</span>
-              <span>Column B (Correct Match)</span>
-            </div>
-            ${validMatchList.map((q, idx) => {
-              let leftText = cleanTextPrefix(q.left || q.question || q.text || `Item ${idx+1}`);
-              let rightText = cleanTextPrefix(q.right || q.answer || `Match ${idx+1}`);
-              if (leftText.includes(' - ')) {
-                const parts = leftText.split(' - ');
-                leftText = parts[0].trim();
-                if (parts[1]) rightText = parts[1].trim();
-              }
-              return `
-                <div class="grid grid-cols-2 gap-16 font-medium text-slate-800">
-                  <span>${idx + 1}. ${leftText}</span>
-                  <span class="font-bold text-emerald-700">➔ ${rightText}</span>
-                </div>
-              `;
-            }).join('')}
-          </div>
-        `;
-      }
-    } 
-    // 2. SHORT SUBQUESTIONS (Name One, Meaning, Opposites, Give One Word, Rhyming, Animal Cries) -> 2-COLUMN SIDE-BY-SIDE GRID
-    else if (headLower.includes('name one') || headLower.includes('meaning') || headLower.includes('opposite') || headLower.includes('give one word') || headLower.includes('cry') || headLower.includes('rhyming') || headLower.includes('comparison')) {
-      html += `<div class="grid grid-cols-2 gap-x-12 gap-y-2 text-xs pl-2">`;
-      qList.forEach((q, itemIdx) => {
-        const itemNo = itemIdx + 1;
-        let cleanQ = cleanTextPrefix(q.question || q.text || q.term || '');
-        let ansStr = q.answer || '';
-
-        // If question text contains answer (e.g. "Herbivore - Cow"), separate them!
-        if (cleanQ.includes(' - ')) {
-          const parts = cleanQ.split(' - ');
-          cleanQ = parts[0].trim();
-          if (!ansStr && parts[1]) ansStr = parts[1].trim();
-        }
-
-        if (currentPaperMode === 'exam' || currentPaperMode === 'homework') {
-          // Unsolved 2-column side-by-side layout (matching English 1 docx)
-          let underline = '__________________________';
-          if (headLower.includes('opposite')) {
-            html += `<div class="font-medium text-slate-800">${itemNo}. ${cleanQ} &nbsp;X&nbsp; ${underline}</div>`;
-          } else {
-            html += `<div class="font-medium text-slate-800">${itemNo}. ${cleanQ} &nbsp;–&nbsp; ${underline}</div>`;
-          }
-        } else {
-          // Solved Classwork 2-column layout
-          if (headLower.includes('opposite')) {
-            html += `<div class="font-medium text-slate-800">${itemNo}. ${cleanQ} &nbsp;X&nbsp; <u class="font-bold text-indigo-700 bg-indigo-50 px-1 rounded">${ansStr || 'Answer'}</u></div>`;
-          } else {
-            html += `<div class="font-medium text-slate-800">${itemNo}. ${cleanQ} &nbsp;–&nbsp; <u class="font-bold text-indigo-700 bg-indigo-50 px-1 rounded">${ansStr || 'Answer'}</u></div>`;
-          }
-        }
-      });
-      html += `</div>`;
-    }
-    // 3. MCQs (CHOOSE THE CORRECT ANSWER)
-    else if (headLower.includes('choose') || headLower.includes('tick') || (qList[0] && qList[0].options)) {
-      html += `<div class="space-y-3 pl-2">`;
-      qList.forEach((q, itemIdx) => {
-        const itemNo = itemIdx + 1;
-        const cleanQ = cleanTextPrefix(q.question || q.text || '');
-        const options = q.options || ['Option A', 'Option B'];
-
-        html += `
-          <div class="text-xs space-y-1">
-            <p class="font-semibold text-slate-900">${itemNo}. ${cleanQ}</p>
-            <div class="pl-4 flex flex-wrap gap-8 text-slate-700 font-mono text-[11px]">
-              ${options.map((opt, optIdx) => {
-                const isCorrect = currentPaperMode === 'classwork' && q.answer && q.answer.toLowerCase().includes(opt.toLowerCase());
-                return `<span class="${isCorrect ? 'font-bold text-emerald-700 bg-emerald-50 px-1 rounded' : ''}">(${['a', 'b', 'c', 'd'][optIdx]}) ${opt} ${isCorrect ? '✓' : '[ &nbsp; ]'}</span>`;
-              }).join('')}
-            </div>
-          </div>
-        `;
-      });
-      html += `</div>`;
-    }
-    // 4. DEFINE SECTION (Only Term + Underline Line in Exam/Homework mode)
-    else if (headLower.includes('define')) {
-      html += `<div class="space-y-3 pl-2">`;
-      qList.forEach((q, itemIdx) => {
-        const itemNo = itemIdx + 1;
-        let rawStr = cleanTextPrefix(q.term || q.question || q.text || 'Term');
-        let termStr = rawStr;
-        let answerStr = q.answer || q.definition || '';
-
-        // Extract term if definition text was concatenated (e.g. "Habitat: The surroundings of...")
-        if (rawStr.includes(':')) {
-          const parts = rawStr.split(':');
-          termStr = parts[0].trim();
-          if (!answerStr && parts[1]) answerStr = parts[1].trim();
-        }
-
-        if (currentPaperMode === 'exam' || currentPaperMode === 'homework') {
-          // Exam / Homework Mode: Term ONLY + 1 clean underline line (NO definition text)
-          html += `
-            <div class="text-xs font-medium text-slate-800">
-              ${itemNo}. ${termStr} &nbsp;–&nbsp; ____________________________________________________________________
-            </div>
-          `;
-        } else {
-          // Classwork Mode: Term + Full Definition Answer
-          html += `
-            <div class="text-xs space-y-1">
-              <p class="font-bold text-slate-900">${itemNo}. ${termStr}:</p>
-              <p class="pl-4 font-medium text-slate-800 bg-slate-50 p-2 rounded border-l-2 border-indigo-600"><span class="font-bold text-indigo-700">Ans:</span> ${answerStr || 'Defined in student notebook.'}</p>
-            </div>
-          `;
-        }
-      });
-      html += `</div>`;
-    }
-    // 5. FILL IN THE BLANKS / COMPLETE SENTENCE / ODD WORD / WHO SAID TO WHOM
-    else if (headLower.includes('fill') || headLower.includes('complete') || headLower.includes('odd') || headLower.includes('who said')) {
-      html += `<div class="space-y-2.5 pl-2">`;
-      qList.forEach((q, itemIdx) => {
-        const itemNo = itemIdx + 1;
-        let rawQ = cleanTextPrefix(q.question || q.text || '');
-        let ansStr = q.answer || '';
-
-        // Clean trailing predicate phrase from question prompt (e.g. "Terrestrial animals are those that" -> "Terrestrial animals")
-        let promptOnly = rawQ.replace(/\s+(are|is)\s+(those|a|an|the)?\s*(that|who|which)?\s*(lives?|come|can)?\s*(on|in|at)?\s*$/i, '').trim();
-        if (!promptOnly) promptOnly = rawQ;
-
-        if (currentPaperMode === 'exam' || currentPaperMode === 'homework') {
-          // Calculate line length proportional to answer length, min 35 underscores
-          const lineLength = Math.max(35, (ansStr ? ansStr.length * 2.2 : 42));
-          const blankLine = '_'.repeat(Math.round(lineLength));
-
-          if (headLower.includes('who said')) {
-            html += `
-              <div class="text-xs space-y-1">
-                <p class="font-semibold text-slate-900">${itemNo}. "${promptOnly.replace(/^"/,'').replace(/"$/,'')}"</p>
-                <p class="text-[11px] text-slate-400 font-mono pl-4">Ans: ____________________________________________________________________________________</p>
-              </div>
-            `;
-          } else {
-            html += `
-              <div class="text-xs text-slate-800 font-medium">
-                ${itemNo}. ${promptOnly} ${blankLine}
-              </div>
-            `;
-          }
-        } else {
-          // Classwork Mode: Prompt + Full underlined Answer
-          let fullAnsText = ansStr;
-          if (rawQ.includes('are those') && !ansStr.startsWith('are those')) {
-            fullAnsText = `are those that ${ansStr}`;
-          }
-          html += `
-            <div class="text-xs text-slate-800 font-medium">
-              ${itemNo}. ${promptOnly} <u class="font-bold text-indigo-700 bg-indigo-50 px-1 rounded">${fullAnsText}</u>
-            </div>
-          `;
-        }
-      });
-      html += `</div>`;
-    }
-    // 6. SHORT / LONG ANSWER THE FOLLOWING QUESTIONS
-    else {
-      html += `<div class="space-y-3 pl-2">`;
-      qList.forEach((q, itemIdx) => {
-        const itemNo = itemIdx + 1;
-        const questionText = cleanTextPrefix(q.question || q.text || 'Question text');
-        const answerText = q.answer || '';
-        const numLines = q.answerLines || (answerText.length > 100 ? 3 : 2);
-
-        if (currentPaperMode === 'exam' || currentPaperMode === 'homework') {
-          html += `
-            <div class="text-xs space-y-1.5">
-              <p class="font-bold text-slate-900">${itemNo}. ${questionText}</p>
-              <div class="pl-4 space-y-1 font-mono text-[11px] text-slate-400">
-                <p>Ans: ____________________________________________________________________________________</p>
-                ${numLines >= 2 ? '<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;____________________________________________________________________________________</p>' : ''}
-                ${numLines >= 3 ? '<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;____________________________________________________________________________________</p>' : ''}
-              </div>
-            </div>
-          `;
-        } else {
-          html += `
-            <div class="text-xs space-y-1">
-              <p class="font-bold text-slate-900">${itemNo}. ${questionText}</p>
-              <p class="pl-4 font-medium text-slate-800 bg-slate-50 p-2 rounded border-l-2 border-indigo-600"><span class="font-bold text-indigo-700">Ans:</span> ${answerText || 'See notebook diagram/notes.'}</p>
-            </div>
-          `;
-        }
-      });
-      html += `</div>`;
-    }
-
-    html += `</div>`;
-    sectionIdx++;
-  }
-
-  html += `</div>`;
-  paperSheet.innerHTML = html;
+// Scroll / Show Teacher Dashboard
+function showDashboardHome() {
+  switchRole('teacher');
+  const view = document.getElementById('role-teacher-view');
+  if (view) view.scrollIntoView({ behavior: 'smooth' });
 }
 
-// 6. Custom Section Builder
-function addCustomSectionToPaper() {
-  const heading = document.getElementById('builder-heading').value;
-  const chapterId = document.getElementById('builder-chapter-select').value;
-  const count = parseInt(document.getElementById('builder-count').value) || 5;
-
-  let sourceQuestions = [];
-  if (dbData.chapters) {
-    dbData.chapters.forEach(ch => {
-      if (chapterId === 'ALL' || ch.id === chapterId) {
-        if (ch.questions) sourceQuestions.push(...ch.questions);
-      }
-    });
-  }
-
-  // Filter matching questions
-  let matched = sourceQuestions.filter(q => q.heading === heading || (q.type && heading.toLowerCase().includes(q.type)));
-  if (matched.length === 0) matched = sourceQuestions;
-
-  // Shuffle & slice count
-  const selected = matched.sort(() => 0.5 - Math.random()).slice(0, count);
-
-  if (!currentPaper) {
-    currentPaper = {
-      subject: 'CUSTOM EXAM',
-      title: 'CUSTOM QUESTION PAPER',
-      subTitle: 'Generated Exam Paper',
-      groupedHeadings: {}
-    };
-  }
-
-  currentPaper.groupedHeadings[heading] = selected;
-  renderA4PaperDOM();
-  closeModal('modal-builder');
-  showToast(`Added section "${heading}" with ${selected.length} questions!`);
-}
-
-// 7. Maths Concept Data Variation (Changes numbers keeping math concept same)
-function varyMathsData() {
-  if (!currentPaper || !currentPaper.groupedHeadings) {
-    showToast('Generate a paper first', 'error');
+// EXAM PAPER CARD & STUDIO HANDLERS (Requirement 3 & 5)
+function handleExamPaperCardClick() {
+  if (currentRole === 'parent') {
+    showToast('Exam Paper is locked for Students/Parents. Teacher access only.', 'error');
     return;
   }
 
-  let count = 0;
-  for (const qList of Object.values(currentPaper.groupedHeadings)) {
-    qList.forEach(q => {
-      if (q.type === 'math_concept' && q.vars) {
-        // Vary numbers logically
-        const multiplier = Math.floor(Math.random() * 8) + 2;
-        const baseVal = Math.floor(Math.random() * 9) + 2;
-        q.vars.b = baseVal;
-        q.vars.a = baseVal * multiplier;
-        count++;
-      }
-    });
-  }
+  switchRole('teacher');
+  const studio = document.getElementById('section-exam-studio');
+  if (studio) studio.scrollIntoView({ behavior: 'smooth' });
+  onExamConfigChange();
+}
 
-  if (count > 0) {
-    renderA4PaperDOM();
-    showToast(`Varied numbers for ${count} math equations!`);
+function onExamConfigChange() {
+  const stdVal = document.getElementById('exam-std-select').value;
+  const subVal = document.getElementById('exam-subject-select').value;
+  
+  if (currentExamMode === 'auto') {
+    generateAutoExamPaper(false);
   } else {
-    showToast('No variable math questions found in current paper', 'error');
+    renderManualChecklistContainer();
   }
 }
 
-// 8. 1-Click Regenerate / Re-shuffle
-function regenerateSubquestions() {
-  if (!currentPaper || !currentPaper.chapter) {
-    showToast('Generate a paper first to shuffle', 'error');
-    return;
-  }
-
-  renderPaperFromChapter(currentPaper.chapter);
-  showToast('Re-shuffled paper questions successfully!');
+function openPaperTypeHeadingModal() {
+  renderPaperHeadingsList();
+  openModal('modal-paper-headings');
 }
 
-// 9. Share Paper with Parents
-function sharePaperWithParents() {
-  if (!currentPaper) {
-    showToast('Generate a paper first', 'error');
-    return;
-  }
+function renderPaperHeadingsList() {
+  const container = document.getElementById('headings-list-container');
+  if (!container) return;
 
-  sharedFeed.unshift({
-    id: 'feed_' + Date.now(),
-    title: currentPaper.title + ' - ' + currentPaper.subTitle,
-    date: new Date().toLocaleDateString(),
-    paper: JSON.parse(JSON.stringify(currentPaper))
-  });
-
-  showToast('Paper shared to Parent/Student Feed!');
-}
-
-function renderParentFeed() {
-  const container = document.getElementById('parent-feed-container');
-  if (sharedFeed.length === 0) {
-    container.innerHTML = `<p class="text-xs text-slate-400 py-6 text-center">No classwork papers shared yet today.</p>`;
-    return;
-  }
-
-  container.innerHTML = sharedFeed.map(item => `
-    <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
-      <div class="flex justify-between items-center">
-        <h4 class="font-bold text-slate-900 text-sm">${item.title}</h4>
-        <span class="text-[10px] text-slate-400 font-medium">${item.date}</span>
-      </div>
-      <p class="text-xs text-slate-600">Teacher has shared today's classwork paper for practice.</p>
-      <button onclick="loadSharedPaper('${item.id}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow">
-        View & Practice Paper
+  container.innerHTML = paperTypeHeadings.map((h, idx) => `
+    <div class="flex justify-between items-center p-2 bg-slate-100 rounded-lg text-xs font-bold text-slate-800">
+      <span>${h}</span>
+      <button onclick="removePaperHeadingItem(${idx})" class="text-rose-600 hover:text-rose-800 text-xs">
+        <i class="fa-solid fa-trash"></i>
       </button>
     </div>
   `).join('');
 }
 
-function loadSharedPaper(feedId) {
-  const item = sharedFeed.find(f => f.id === feedId);
-  if (item) {
-    currentPaper = item.paper;
-    switchRole('teacher');
-    renderA4PaperDOM();
-    showToast('Loaded shared paper into A4 preview');
+function addPaperHeadingItem() {
+  const input = document.getElementById('new-heading-text');
+  const val = input ? input.value.trim() : '';
+
+  if (!val) {
+    showToast('Please enter heading text', 'error');
+    return;
+  }
+
+  paperTypeHeadings.push(val);
+  savePaperHeadings();
+  renderPaperHeadingsList();
+  showToast(`Added heading '${val}'!`);
+  if (input) input.value = '';
+}
+
+function removePaperHeadingItem(idx) {
+  paperTypeHeadings.splice(idx, 1);
+  savePaperHeadings();
+  renderPaperHeadingsList();
+}
+
+function setExamMode(mode) {
+  currentExamMode = mode;
+  const btnAuto = document.getElementById('btn-mode-auto');
+  const btnManual = document.getElementById('btn-mode-manual');
+  const autoContainer = document.getElementById('container-auto-buttons');
+  const manualToggleBtn = document.getElementById('btn-manual-questions-toggle');
+  const manualPanel = document.getElementById('panel-manual-checklist');
+  const statusLabel = document.getElementById('exam-action-status-label');
+
+  if (mode === 'auto') {
+    if (btnAuto) btnAuto.className = 'flex-1 py-1.5 rounded-md bg-rose-600 text-white shadow transition flex items-center justify-center gap-1 font-bold';
+    if (btnManual) btnManual.className = 'flex-1 py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1 font-bold';
+    if (autoContainer) autoContainer.classList.remove('hidden');
+    if (manualToggleBtn) manualToggleBtn.classList.add('hidden');
+    if (manualPanel) manualPanel.classList.add('hidden');
+    if (statusLabel) statusLabel.innerText = 'Auto Exam Paper Mode Active';
+    generateAutoExamPaper(false);
+  } else {
+    if (btnAuto) btnAuto.className = 'flex-1 py-1.5 rounded-md text-slate-600 hover:text-slate-900 transition flex items-center justify-center gap-1 font-bold';
+    if (btnManual) btnManual.className = 'flex-1 py-1.5 rounded-md bg-indigo-600 text-white shadow transition flex items-center justify-center gap-1 font-bold';
+    if (autoContainer) autoContainer.classList.add('hidden');
+    if (manualToggleBtn) manualToggleBtn.classList.remove('hidden');
+    if (manualToggleBtn) manualToggleBtn.classList.add('flex');
+    if (manualPanel) manualPanel.classList.remove('hidden');
+    if (statusLabel) statusLabel.innerText = 'Manual Exam Paper Mode Active (Check questions below)';
+    renderManualChecklistContainer();
   }
 }
 
-function generateParentPracticePaper() {
-  generateAutoPaper();
-  switchRole('teacher');
+// Generate Auto Exam Paper (Requirement 3 - with 🔄 Generate Again button shuffler)
+function generateAutoExamPaper(isShuffle = false) {
+  const stdVal = document.getElementById('exam-std-select').value;
+  const subVal = document.getElementById('exam-subject-select').value;
+
+  // Gather matching questions from DB
+  let matchingQuestions = [];
+  if (dbData.chapters) {
+    dbData.chapters.forEach(ch => {
+      if (ch.subject.toLowerCase() === subVal.toLowerCase() && ch.questions) {
+        ch.questions.forEach(q => {
+          if (!q.standard || q.standard === stdVal) {
+            matchingQuestions.push({ ...q, chapterNo: ch.chapterNo, chapterName: ch.chapterName });
+          }
+        });
+      }
+    });
+  }
+
+  if (matchingQuestions.length === 0) {
+    showToast(`No questions found for ${stdVal} ${subVal}. Upload homework/classwork first!`, 'error');
+    return;
+  }
+
+  // If shuffle requested, randomize array
+  if (isShuffle) {
+    matchingQuestions.sort(() => Math.random() - 0.5);
+  }
+
+  // Auto-allocate questions under paperTypeHeadings
+  const grouped = {};
+  paperTypeHeadings.forEach((heading, hIdx) => {
+    // Pick 3-4 questions per heading
+    const selected = matchingQuestions.slice(hIdx * 3, (hIdx + 1) * 3);
+    if (selected.length > 0) {
+      grouped[heading] = selected;
+    } else {
+      // Fallback: pick any questions
+      grouped[heading] = matchingQuestions.slice(0, 3);
+    }
+  });
+
+  currentPaper = {
+    title: `ANNUAL EXAM PAPER - ${stdVal.toUpperCase()}`,
+    schoolName: currentUser ? currentUser.schoolName : 'School Name',
+    date: new Date().toISOString().split('T')[0],
+    standard: stdVal,
+    subject: subVal,
+    groupedHeadings: grouped
+  };
+
+  renderA4PaperDOM();
+  if (isShuffle) showToast('Generated fresh Question Paper set with new sub-questions!');
 }
 
-// 10. Export to PDF (html2pdf)
+function toggleManualChecklist() {
+  const panel = document.getElementById('panel-manual-checklist');
+  if (panel) panel.classList.toggle('hidden');
+}
+
+// Render Manual Question Checklist
+function renderManualChecklistContainer() {
+  const container = document.getElementById('manual-headings-checklist-container');
+  if (!container) return;
+
+  const stdVal = document.getElementById('exam-std-select').value;
+  const subVal = document.getElementById('exam-subject-select').value;
+
+  let matchingQuestions = [];
+  if (dbData.chapters) {
+    dbData.chapters.forEach(ch => {
+      if (ch.subject.toLowerCase() === subVal.toLowerCase() && ch.questions) {
+        ch.questions.forEach(q => {
+          if (!q.standard || q.standard === stdVal) {
+            matchingQuestions.push({ ...q, chapterNo: ch.chapterNo });
+          }
+        });
+      }
+    });
+  }
+
+  if (matchingQuestions.length === 0) {
+    container.innerHTML = `<p class="text-xs text-slate-400 italic py-4">No questions available for ${stdVal} ${subVal}.</p>`;
+    return;
+  }
+
+  container.innerHTML = paperTypeHeadings.map(heading => `
+    <div class="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
+      <h5 class="font-bold text-xs text-indigo-900 border-b pb-1 flex items-center justify-between">
+        <span>${heading}</span>
+        <span class="text-[10px] text-slate-400 font-medium">Select questions to add</span>
+      </h5>
+      <div class="space-y-1.5">
+        ${matchingQuestions.map(q => {
+          const isChecked = manualSelectedQuestionIds.includes(q.id);
+          return `
+            <label class="flex items-center gap-2 text-xs p-1.5 rounded hover:bg-indigo-50 cursor-pointer">
+              <input type="checkbox" value="${q.id}" ${isChecked ? 'checked' : ''} onchange="toggleManualQuestionSelection('${q.id}', '${heading}')" class="w-4 h-4 text-indigo-600 rounded">
+              <span class="text-slate-800 font-medium">${q.question || q.text}</span>
+            </label>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleManualQuestionSelection(qId, heading) {
+  const idx = manualSelectedQuestionIds.indexOf(qId);
+  if (idx >= 0) manualSelectedQuestionIds.splice(idx, 1);
+  else manualSelectedQuestionIds.push(qId);
+
+  const countEl = document.getElementById('manual-selected-count');
+  if (countEl) countEl.innerText = `${manualSelectedQuestionIds.length} questions selected`;
+
+  buildManualExamPaper();
+}
+
+function buildManualExamPaper() {
+  const stdVal = document.getElementById('exam-std-select').value;
+  const subVal = document.getElementById('exam-subject-select').value;
+
+  const grouped = {};
+  paperTypeHeadings.forEach(heading => {
+    grouped[heading] = [];
+  });
+
+  if (dbData.chapters) {
+    dbData.chapters.forEach(ch => {
+      if (ch.questions) {
+        ch.questions.forEach(q => {
+          if (manualSelectedQuestionIds.includes(q.id)) {
+            const h = q.heading || paperTypeHeadings[0];
+            if (!grouped[h]) grouped[h] = [];
+            grouped[h].push(q);
+          }
+        });
+      }
+    });
+  }
+
+  currentPaper = {
+    title: `MANUAL EXAM PAPER - ${stdVal.toUpperCase()}`,
+    schoolName: currentUser ? currentUser.schoolName : 'School Name',
+    date: new Date().toISOString().split('T')[0],
+    standard: stdVal,
+    subject: subVal,
+    groupedHeadings: grouped
+  };
+
+  renderA4PaperDOM();
+}
+
+// Practice Paper Studio (Requirement 4)
+function openPracticePaperStudio() {
+  const stdVal = currentUser ? (currentUser.standard || 'Std 5') : 'Std 5';
+  const subVal = masterSubjects[0] || 'Maths';
+
+  let practiceQuestions = [];
+  if (dbData.chapters) {
+    dbData.chapters.forEach(ch => {
+      if (ch.questions) {
+        ch.questions.forEach(q => practiceQuestions.push(q));
+      }
+    });
+  }
+
+  if (practiceQuestions.length === 0) {
+    showToast('No homework/classwork questions uploaded yet for practice.', 'error');
+    return;
+  }
+
+  currentPaper = {
+    title: `PRACTICE TEST PAPER - ${stdVal}`,
+    schoolName: currentUser ? currentUser.schoolName : 'School Name',
+    date: new Date().toISOString().split('T')[0],
+    standard: stdVal,
+    subject: subVal,
+    groupedHeadings: groupQuestionsByHeading(practiceQuestions.slice(0, 10))
+  };
+
+  switchRole('teacher');
+  renderA4PaperDOM();
+  showToast('Generated Practice Paper from accumulated Homework & Classwork!');
+}
+
+// Render Printable A4 Paper DOM
+function renderA4PaperDOM() {
+  const paperSheet = document.getElementById('a4-paper-sheet');
+  if (!paperSheet || !currentPaper) return;
+
+  const school = currentPaper.schoolName || (currentUser ? currentUser.schoolName : 'School Name');
+  const city = currentUser && currentUser.cityName ? currentUser.cityName : 'City';
+  const dateStr = currentPaper.date || new Date().toISOString().split('T')[0];
+  const std = currentPaper.standard || 'Std 5';
+  const sub = currentPaper.subject || 'General';
+
+  let contentHtml = `
+    <!-- Standard Official Header -->
+    <div class="text-center border-b-2 border-slate-900 pb-3 space-y-1">
+      <h2 class="text-xl font-black uppercase tracking-wider text-slate-900">${school}</h2>
+      <p class="text-xs font-bold text-slate-600">${city} | Academic Term 2026</p>
+      <div class="flex justify-between items-center text-xs font-bold text-slate-800 pt-2 border-t border-slate-300">
+        <span>Std: ${std}</span>
+        <span class="font-extrabold uppercase tracking-wide">${currentPaper.title || 'QUESTION PAPER'}</span>
+        <span>Subject: ${sub}</span>
+      </div>
+      <div class="flex justify-between items-center text-[11px] font-semibold text-slate-600">
+        <span>Date: ${dateStr}</span>
+        <span>Marks: 50 | Time: 2 Hours</span>
+      </div>
+    </div>
+  `;
+
+  if (currentPaper.groupedHeadings) {
+    let sectionIdx = 1;
+    for (const [heading, questions] of Object.entries(currentPaper.groupedHeadings)) {
+      if (questions && questions.length > 0) {
+        contentHtml += `
+          <div class="space-y-2 pt-2">
+            <h4 class="font-extrabold text-sm text-slate-900">${heading}</h4>
+            <div class="space-y-2 pl-3">
+              ${questions.map((q, qIdx) => {
+                let qText = q.question || q.text || '';
+                return `
+                  <div class="text-xs text-slate-800">
+                    <span class="font-bold mr-1">(${qIdx + 1})</span> ${qText}
+                    ${q.options && Array.isArray(q.options) ? `
+                      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 pl-4 pt-1 font-medium text-slate-700">
+                        ${q.options.map(opt => `<span>(  ) ${opt}</span>`).join('')}
+                      </div>
+                    ` : ''}
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+        sectionIdx++;
+      }
+    }
+  }
+
+  paperSheet.innerHTML = contentHtml;
+}
+
+// Export to PDF (html2pdf)
 function exportToPDF() {
   const element = document.getElementById('a4-paper-sheet');
   const opt = {
-    margin:       10,
-    filename:     `${currentPaper ? currentPaper.title : 'Question_Paper'}.pdf`,
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2 },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    margin: 10,
+    filename: `${currentPaper ? currentPaper.title : 'Question_Paper'}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2 },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
   };
   html2pdf().set(opt).from(element).save();
   showToast('Downloading A4 PDF...');
 }
 
-// 11. Export to DOCX (docx.js)
+// Export to DOCX (docx.js)
 function exportToDOCX() {
   if (!docx) {
     showToast('DOCX exporter loading...', 'error');
@@ -1461,10 +1247,8 @@ function exportToDOCX() {
   }
 
   const { Document, Packer, Paragraph, TextRun } = docx;
-
   const docParagraphs = [];
 
-  // Title
   docParagraphs.push(
     new Paragraph({
       alignment: docx.AlignmentType.CENTER,
@@ -1486,7 +1270,7 @@ function exportToDOCX() {
         new Paragraph({
           children: [
             new TextRun({
-              text: `\nQ${secIdx}. ${heading}`,
+              text: `\n${heading}`,
               bold: true,
               size: 24,
               font: 'Calibri'
@@ -1496,7 +1280,7 @@ function exportToDOCX() {
       );
 
       qList.forEach((q, idx) => {
-        let textStr = q.question || q.text || q.statement || (q.template ? q.template.replace('{a}', q.vars.a).replace('{b}', q.vars.b) : '');
+        let textStr = q.question || q.text || '';
         docParagraphs.push(
           new Paragraph({
             children: [
@@ -1514,10 +1298,7 @@ function exportToDOCX() {
   }
 
   const doc = new Document({
-    sections: [{
-      properties: {},
-      children: docParagraphs
-    }]
+    sections: [{ properties: {}, children: docParagraphs }]
   });
 
   Packer.toBlob(doc).then(blob => {
@@ -1529,70 +1310,44 @@ function exportToDOCX() {
   });
 }
 
-function scrollToQuestionBank() {
-  document.getElementById('question-bank-container').scrollIntoView({ behavior: 'smooth' });
-}
-
-// 12. Gemini API Key Configuration
-async function checkApiKeyStatus() {
-  try {
-    const res = await fetch('/api/config-key');
-    const data = await res.json();
-    const badge = document.getElementById('api-key-status-badge');
-    if (badge) {
-      if (data.hasKey) {
-        badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800';
-        badge.innerText = '● API Key Configured';
-      } else {
-        badge.className = 'text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800';
-        badge.innerText = '● Demo Mode Active';
-      }
-    }
-  } catch (err) {
-    console.error('Failed to check API Key status:', err);
-  }
-}
-
-async function saveApiKey() {
-  const input = document.getElementById('input-api-key');
-  const key = input ? input.value.trim() : '';
-
-  if (!key) {
-    showToast('Please enter a valid API Key', 'error');
+function renderParentFeed() {
+  const container = document.getElementById('parent-feed-container');
+  if (!container) return;
+  if (sharedFeed.length === 0) {
+    container.innerHTML = `<p class="text-xs text-slate-400 py-6 text-center">No homework or classwork shared yet today.</p>`;
     return;
   }
 
-  try {
-    const res = await fetch('/api/config-key', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ key })
-    });
-    const data = await res.json();
-    if (data.success) {
-      showToast('API Key saved successfully!');
-      if (input) input.value = '';
-      checkApiKeyStatus();
-    } else {
-      showToast(data.error || 'Failed to save key', 'error');
-    }
-  } catch (err) {
-    showToast('Failed to connect to server', 'error');
+  container.innerHTML = sharedFeed.map(item => `
+    <div class="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2">
+      <div class="flex justify-between items-center">
+        <h4 class="font-bold text-slate-900 text-sm">${item.title}</h4>
+        <span class="text-[10px] text-slate-400 font-medium">${item.date}</span>
+      </div>
+      <p class="text-xs text-slate-600">Teacher shared this topic for student home practice.</p>
+      <button onclick="loadSharedPaper('${item.id}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg shadow">
+        View & Practice Paper
+      </button>
+    </div>
+  `).join('');
+}
+
+function loadSharedPaper(feedId) {
+  const item = sharedFeed.find(f => f.id === feedId);
+  if (item) {
+    currentPaper = item.paper;
+    switchRole('teacher');
+    renderA4PaperDOM();
+    showToast('Loaded paper into A4 preview');
   }
 }
 
-// Check key status on startup
-document.addEventListener('DOMContentLoaded', () => {
-  checkApiKeyStatus();
-});
-
-// ================= WEB-ONLY SUPER ADMIN DIRECTORY & SCHOOL MANAGEMENT =================
-
+// WEB-ONLY SUPER ADMIN DIRECTORY
 async function loadAdminDirectory() {
   const container = document.getElementById('admin-directory-container');
   if (!container) return;
 
-  container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs"><i class="fa-solid fa-spinner fa-spin"></i> Loading School Directory...</div>`;
+  container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs"><i class="fa-solid fa-spinner fa-spin"></i> Loading Directory...</div>`;
 
   try {
     const res = await fetch('/api/admin/directory', {
@@ -1600,9 +1355,7 @@ async function loadAdminDirectory() {
     });
 
     const data = await res.json();
-    if (!data.success) {
-      throw new Error(data.error || 'Failed to load admin directory');
-    }
+    if (!data.success) throw new Error(data.error || 'Failed to load directory');
 
     if (data.schools.length === 0) {
       container.innerHTML = `<div class="text-center py-6 text-slate-400 text-xs">No registered schools found. Add a school above!</div>`;
@@ -1611,7 +1364,6 @@ async function loadAdminDirectory() {
 
     container.innerHTML = data.schools.map(school => `
       <div class="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
-        <!-- School Header Bar -->
         <div class="flex flex-wrap justify-between items-center gap-2 border-b border-slate-200 pb-3">
           <div>
             <div class="flex items-center gap-2">
@@ -1624,20 +1376,14 @@ async function loadAdminDirectory() {
             </p>
           </div>
 
-          <!-- Subscription Toggle Button -->
           <div class="flex items-center gap-2">
             <span class="text-xs font-semibold ${school.subscriptionStatus === 'active' ? 'text-emerald-700' : 'text-rose-700'}">
               ● ${school.subscriptionStatus.toUpperCase()} SUBSCRIPTION
             </span>
-            <button onclick="adminToggleSubscription('${school.id}', '${school.subscriptionStatus}')" class="px-3 py-1.5 text-xs font-bold rounded-lg transition ${school.subscriptionStatus === 'active' ? 'bg-rose-100 hover:bg-rose-200 text-rose-800' : 'bg-emerald-600 hover:bg-emerald-700 text-white shadow'}">
-              ${school.subscriptionStatus === 'active' ? 'Deactivate School' : 'Activate School'}
-            </button>
           </div>
         </div>
 
-        <!-- Teachers & Parents Lists -->
         <div class="grid grid-cols-1 md:grid-cols-2 gap-3 pt-1">
-          <!-- Teachers List -->
           <div class="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
             <h4 class="font-bold text-xs text-indigo-900 flex items-center gap-1.5 border-b pb-1">
               <i class="fa-solid fa-chalkboard-user text-indigo-600"></i> Teachers List (${school.teachers.length})
@@ -1647,8 +1393,8 @@ async function loadAdminDirectory() {
                 ${school.teachers.map(t => `
                   <div class="flex justify-between items-center text-xs p-1.5 bg-slate-50 rounded border border-slate-100">
                     <span class="font-semibold text-slate-800">${t.name}</span>
-                    <span class="font-bold text-indigo-700 font-mono bg-indigo-50 px-1.5 py-0.5 rounded flex items-center gap-1">
-                      <i class="fa-solid fa-phone text-[10px]"></i> +91 ${t.mobile}
+                    <span class="font-bold text-indigo-700 font-mono bg-indigo-50 px-1.5 py-0.5 rounded">
+                      +91 ${t.mobile}
                     </span>
                   </div>
                 `).join('')}
@@ -1656,7 +1402,6 @@ async function loadAdminDirectory() {
             `}
           </div>
 
-          <!-- Parents List -->
           <div class="bg-white p-3 rounded-lg border border-slate-200 space-y-2">
             <h4 class="font-bold text-xs text-emerald-900 flex items-center gap-1.5 border-b pb-1">
               <i class="fa-solid fa-users text-emerald-600"></i> Parents List (${school.parents.length})
@@ -1666,8 +1411,8 @@ async function loadAdminDirectory() {
                 ${school.parents.map(p => `
                   <div class="flex justify-between items-center text-xs p-1.5 bg-slate-50 rounded border border-slate-100">
                     <span class="font-semibold text-slate-800">${p.name}</span>
-                    <span class="font-bold text-emerald-700 font-mono bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1">
-                      <i class="fa-solid fa-phone text-[10px]"></i> +91 ${p.mobile}
+                    <span class="font-bold text-emerald-700 font-mono bg-emerald-50 px-1.5 py-0.5 rounded">
+                      +91 ${p.mobile}
                     </span>
                   </div>
                 `).join('')}
@@ -1706,30 +1451,6 @@ async function adminAddNewSchool(e) {
     document.getElementById('admin-school-code').value = '';
     loadAdminDirectory();
     loadPublicSchools();
-
-  } catch (err) {
-    showToast(err.message, 'error');
-  }
-}
-
-async function adminToggleSubscription(schoolId, currentStatus) {
-  const newStatus = currentStatus === 'active' ? 'inactive' : 'active';
-  try {
-    const res = await fetch('/api/admin/subscription', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-admin-passcode': adminPasscode || 'admin123'
-      },
-      body: JSON.stringify({ schoolId, status: newStatus })
-    });
-
-    const result = await res.json();
-    if (!result.success) throw new Error(result.error || 'Failed to update subscription');
-
-    showToast(result.message);
-    loadAdminDirectory();
-
   } catch (err) {
     showToast(err.message, 'error');
   }
