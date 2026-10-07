@@ -58,8 +58,14 @@ function autoCleanupExpiredData() {
 autoCleanupExpiredData();
 setInterval(autoCleanupExpiredData, 60 * 60 * 1000);
 
-// Initialize Gemini API (Free Tier)
+// Initialize Gemini API (Free Tier or Head Admin Configured Key)
 let apiKey = process.env.GEMINI_API_KEY || '';
+try {
+  const initDb = getUsersSchoolsData();
+  if (initDb.systemConfig && initDb.systemConfig.globalApiKey) {
+    apiKey = initDb.systemConfig.globalApiKey.trim();
+  }
+} catch (e) {}
 
 // Endpoint to update API Key on the fly from UI
 app.post('/api/config-key', (req, res) => {
@@ -67,13 +73,22 @@ app.post('/api/config-key', (req, res) => {
   if (key !== undefined) {
     apiKey = key.trim();
     process.env.GEMINI_API_KEY = apiKey;
-    return res.json({ success: true, message: 'Gemini API Key updated successfully!' });
+
+    const db = getUsersSchoolsData();
+    if (!db.systemConfig) db.systemConfig = { adminPasscode: "admin123" };
+    db.systemConfig.globalApiKey = apiKey;
+    saveUsersSchoolsData(db);
+
+    return res.json({ success: true, message: 'Global Master Gemini API Key updated successfully! All app users can now scan photos.' });
   }
   res.status(400).json({ error: 'Key is required' });
 });
 
 app.get('/api/config-key', (req, res) => {
-  res.json({ hasKey: Boolean(apiKey && apiKey.length > 5) });
+  const db = getUsersSchoolsData();
+  const currentKey = apiKey || (db.systemConfig && db.systemConfig.globalApiKey) || '';
+  const maskedKey = currentKey ? (currentKey.substring(0, 6) + '...' + currentKey.substring(currentKey.length - 4)) : '';
+  res.json({ hasKey: Boolean(currentKey && currentKey.length > 5), maskedKey });
 });
 
 // Helper to get available vision models for the user's API Key via REST
@@ -428,7 +443,9 @@ app.post('/api/convert-images', async (req, res) => {
     return res.status(400).json({ error: 'No images provided' });
   }
 
-  const activeApiKey = (clientApiKey && clientApiKey.trim()) || apiKey || process.env.GEMINI_API_KEY || '';
+  const db = getUsersSchoolsData();
+  const serverGlobalKey = apiKey || (db.systemConfig && db.systemConfig.globalApiKey) || process.env.GEMINI_API_KEY || '';
+  const activeApiKey = (clientApiKey && clientApiKey.trim()) || serverGlobalKey;
   const cleanKey = activeApiKey.replace(/['"\s]/g, '').trim();
 
   // API Key is strictly required for live photo OCR

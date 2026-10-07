@@ -35,7 +35,57 @@ document.addEventListener('DOMContentLoaded', () => {
   enforcePlatformSecurityRules();
   checkAuthSession();
   loadQuestionBank();
+  checkGlobalApiKeyStatus();
 });
+
+async function saveGlobalAdminApiKey(e) {
+  if (e) e.preventDefault();
+  const input = document.getElementById('admin-global-api-key');
+  const key = input ? input.value.trim() : '';
+
+  if (!key) {
+    showToast('Please enter Gemini API Key', 'error');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/config-key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key })
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      showToast('Saved Master Gemini API Key for all schools!', 'success');
+      localStorage.setItem('paper_ai_gemini_key', key);
+      checkGlobalApiKeyStatus();
+      if (input) input.value = '';
+    } else {
+      showToast(data.error || 'Failed to save key', 'error');
+    }
+  } catch (err) {
+    showToast('Failed to connect to server', 'error');
+  }
+}
+
+async function checkGlobalApiKeyStatus() {
+  const statusLabel = document.getElementById('admin-key-status-label');
+  try {
+    const res = await fetch('/api/config-key');
+    if (res.ok) {
+      const data = await res.json();
+      if (statusLabel) {
+        if (data.hasKey) {
+          statusLabel.className = 'text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded border border-emerald-200';
+          statusLabel.innerText = `✓ Active Master Key (${data.maskedKey || 'Set'})`;
+        } else {
+          statusLabel.className = 'text-[11px] font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded border border-rose-200';
+          statusLabel.innerText = `⚠ No Master Key Set`;
+        }
+      }
+    }
+  } catch (e) {}
+}
 
 // Load saved custom subjects
 function loadMasterSubjects() {
