@@ -422,77 +422,93 @@ app.post('/api/question-bank', (req, res) => {
 
 // 3. AI Vision OCR & Extraction (Converts photos to structured JSON questions)
 app.post('/api/convert-images', async (req, res) => {
-  const { images, chapterName, chapterNo, subject } = req.body;
+  const { images, chapterName, chapterNo, subject, apiKey: clientApiKey } = req.body;
 
   if (!images || !Array.isArray(images) || images.length === 0) {
     return res.status(400).json({ error: 'No images provided' });
   }
 
-  // Fallback demo extraction if API key is not yet set by user
-  if (!apiKey || apiKey === 'YOUR_FREE_GEMINI_API_KEY_HERE') {
+  const activeApiKey = (clientApiKey && clientApiKey.trim()) || apiKey || process.env.GEMINI_API_KEY || '';
+
+  // Subject-aware fallback extraction if API key is missing or not yet configured
+  if (!activeApiKey || activeApiKey === 'YOUR_FREE_GEMINI_API_KEY_HERE') {
+    const targetSubject = subject || 'Science';
+    const targetChapNo = chapterNo || '1';
+    const targetChapName = chapterName || 'Lesson';
+
+    const fallbackSections = [
+      {
+        heading: 'Answer the Following.',
+        type: 'short_answer',
+        items: [
+          {
+            question: `What is the main topic of ${targetSubject} Chapter ${targetChapNo}?`,
+            answer: `The main topic of ${targetChapName} is the fundamental principles of ${targetSubject}.`
+          }
+        ]
+      },
+      {
+        heading: 'Define',
+        type: 'define',
+        items: [
+          {
+            question: 'Environment',
+            answer: 'The surroundings of an animal that forms the environment which is just right for it to live in.'
+          },
+          {
+            question: 'Herbivorous animals',
+            answer: 'Herbivorous animals are those that consume only plants.'
+          },
+          {
+            question: 'Omnivorous animals',
+            answer: 'Animals that eat both plants and the flesh of other animals are called omnivorous animals.'
+          },
+          {
+            question: 'Carnivorous animals',
+            answer: 'Animals that eat only the flesh of other animals are known as carnivorous animals.'
+          },
+          {
+            question: 'Plateau',
+            answer: 'A plateau is a raised area having steep slopes and flat top.'
+          },
+          {
+            question: 'Peninsular',
+            answer: 'Peninsular is a triangular land with water on the three sides and land on one side.'
+          }
+        ]
+      },
+      {
+        heading: 'Fill in the blanks.',
+        type: 'fill_in_blanks',
+        items: [
+          {
+            question: `In ${targetSubject}, energy flows in a __straight line__.`,
+            answer: 'straight line'
+          }
+        ]
+      }
+    ];
+
     return res.json({
       success: true,
       demoMode: true,
-      message: 'Demo Mode (Add your free GEMINI_API_KEY in Admin tab for live AI vision extraction)',
+      message: 'Demo Mode (Configure your Gemini API key in Admin tab for live photo OCR)',
       extractedData: {
-        chapterName: chapterName || 'Sample Chapter',
-        chapterNo: chapterNo || '1',
-        subject: subject || 'Moral Science',
-        sectionQuestions: [
-          {
-            heading: 'Tick (✓) the correct option:',
-            type: 'mcq',
-            items: [
-              {
-                question: 'The Taj Mahal is situated in:',
-                options: ['Delhi', 'Agra', 'Ajmer'],
-                answer: 'Agra'
-              },
-              {
-                question: 'Our National Flag is:',
-                options: ['One colour', 'Two colour', 'Tri-colour'],
-                answer: 'Tri-colour'
-              }
-            ]
-          },
-          {
-            heading: 'Fill in the blanks:',
-            type: 'fill_in_blanks',
-            items: [
-              'The Golden Temple is situated in ______________________.',
-              'In olden days, India was called ______________________.',
-              'We got freedom on ______________________.'
-            ]
-          },
-          {
-            heading: 'Write \'T\' for true and \'F\' for false statements:',
-            type: 'true_false',
-            items: [
-              { statement: 'The Tri-colour flag was hoisted on the Red Fort.', answer: 'True' },
-              { statement: 'The Red Fort is situated in Agra.', answer: 'False' }
-            ]
-          },
-          {
-            heading: 'Answer the following questions:',
-            type: 'short_answer',
-            items: [
-              'Name any five monuments of India.',
-              'Why was India called the \'Golden Sparrow\'?'
-            ]
-          }
-        ]
+        chapterName: targetChapName,
+        chapterNo: targetChapNo,
+        subject: targetSubject,
+        sectionQuestions: fallbackSections
       }
     });
   }
 
   try {
-    const candidateModels = await getWorkingVisionModels(apiKey);
+    const candidateModels = await getWorkingVisionModels(activeApiKey);
     
     if (candidateModels.length === 0) {
       return res.status(400).json({ error: 'Your Gemini API key is invalid or has no accessible models. Please check key in Admin tab.' });
     }
 
-    // Prepare image inline data
     const imageParts = images.map(imgBase64 => {
       const base64Data = imgBase64.replace(/^data:image\/\w+;base64,/, '');
       return {
@@ -504,64 +520,51 @@ app.post('/api/convert-images', async (req, res) => {
     });
 
     const prompt = `
-You are an expert exam paper OCR & Multi-Page Question Extractor.
-You have been provided with ${images.length} image(s) for Subject: "${subject || 'General'}", Chapter ${chapterNo || '1'}: "${chapterName || 'Chapter'}".
+You are an expert student notebook OCR & Classwork Question-Answer Extractor.
+You have been provided with ${images.length} notebook image(s) for Subject: "${subject || 'General'}", Chapter ${chapterNo || '1'}: "${chapterName || 'Chapter'}".
 
-STRICT EXTRACTION & DEDUPLICATION RULES:
-1. Inspect ALL ${images.length} attached images thoroughly from top to bottom.
-2. Compare all pages and include each unique question ONLY ONCE. Do NOT repeat any question or heading.
-3. For EVERY question, extract BOTH the question text AND the complete correct answer.
-4. Estimate answerLines (1, 2, or 3) for short/long answers based on how long a student's handwritten response would be.
-5. For Match Column questions, separate Left Column (item) and Right Column (matched option) into structured pairs.
-6. For Fill in the Blanks / Complete the Following: Any text underlined in pencil/pen is the student's ANSWER. Extract ONLY the main un-underlined subject (e.g. 'Terrestrial animals', 'Nocturnal animals', 'Aquatic animals', 'Arboreal animals') as 'question'. Everything after the subject that was written/underlined by the student (e.g. 'are those that lives on land.') MUST be stored in 'answer'. Do NOT include 'are those that' inside 'question'.
+STRICT CLASSWORK EXTRACTION RULES:
+1. Inspect ALL ${images.length} attached notebook pages thoroughly from top to bottom.
+2. Extract EVERY section heading as written in the notebook (e.g. "Answer the Following.", "Define", "Fill in the blanks.", "True or False.").
+3. For Question & Answer items (e.g., "Answer the Following", "Short Answers"):
+   - Extract the question text (e.g. "What is your name?").
+   - Extract the COMPLETE written answer written in the notebook (e.g. "My name is Dipak").
+4. CRITICAL FOR "Define" OR "Definitions" SECTION HEADINGS:
+   - Each item under "Define" MUST extract the specific word or term being defined into the "question" field (e.g., question: "Environment", question: "Herbivorous animals", question: "Plateau", question: "Peninsular").
+   - DO NOT leave the question field blank or empty!
+   - Extract the complete definition explanation into the "answer" field (e.g. answer: "The surroundings of an animal that forms the environment which is just right for it to live in.").
+5. For Fill in the Blanks:
+   - Extract the complete statement with the filled answer word clearly formatted with underlines (e.g. "My name is __Dipak__." or "My name is <u>Dipak</u>.").
+6. Include every single question and answer in order as written on the notebook pages.
 
-Return ONLY a valid JSON object matching this structure (no markdown wrapper, no extra text):
+Return ONLY a valid JSON object matching this structure:
 {
   "chapterName": "${chapterName || 'Chapter'}",
   "chapterNo": "${chapterNo || '1'}",
   "subject": "${subject || 'General'}",
   "sectionQuestions": [
     {
-      "heading": "Tick (✓) the correct option:",
-      "type": "mcq",
-      "items": [
-        { "question": "Question text...", "options": ["Option A", "Option B", "Option C"], "answer": "Option B" }
-      ]
-    },
-    {
-      "heading": "Fill in the blanks:",
-      "type": "fill_in_blanks",
-      "items": [
-        { "question": "The Golden Temple is situated in ________________.", "answer": "Amritsar", "blankWordCount": 1 }
-      ]
-    },
-    {
-      "heading": "Write 'T' for true and 'F' for false statements:",
-      "type": "true_false",
-      "items": [
-        { "statement": "Statement text...", "answer": "True" }
-      ]
-    },
-    {
-      "heading": "Define:",
-      "type": "define",
-      "items": [
-        { "term": "Habitat", "answer": "The natural surroundings of an animal where it lives." }
-      ]
-    },
-    {
-      "heading": "Answer the following questions:",
+      "heading": "Answer the Following.",
       "type": "short_answer",
       "items": [
-        { "question": "What are mammals?", "answer": "Mammals are warm-blooded animals that give birth to young ones.", "answerLines": 2 }
+        { "question": "What is your name?", "answer": "My name is Dipak" }
       ]
     },
     {
-      "heading": "Match the column:",
-      "type": "match_column",
+      "heading": "Define",
+      "type": "define",
       "items": [
-        { "left": "Webbed feet", "right": "Duck" },
-        { "left": "Scratching feet", "right": "Hen" }
+        { "question": "Environment", "answer": "The surroundings of an animal that forms the environment which is just right for it to live in." },
+        { "question": "Herbivorous animals", "answer": "Herbivorous animals are those that consume only plants." },
+        { "question": "Plateau", "answer": "A plateau is a raised area having steep slopes and flat top." },
+        { "question": "Peninsular", "answer": "Peninsular is a triangular land with water on three sides and land on one side." }
+      ]
+    },
+    {
+      "heading": "Fill in the blanks.",
+      "type": "fill_in_blanks",
+      "items": [
+        { "question": "My name is __Dipak__.", "answer": "Dipak" }
       ]
     }
   ]
@@ -575,7 +578,7 @@ Return ONLY a valid JSON object matching this structure (no markdown wrapper, no
     for (const modelName of candidateModels.slice(0, 4)) {
       try {
         console.log(`[AI Vision REST] Attempting model: ${modelName}`);
-        responseText = await callGeminiVisionREST(modelName, apiKey, prompt, imageParts);
+        responseText = await callGeminiVisionREST(modelName, activeApiKey, prompt, imageParts);
         if (responseText) {
           console.log(`[AI Vision REST] Successfully generated with model: ${modelName}`);
           break;

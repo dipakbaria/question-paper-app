@@ -15,6 +15,14 @@
       "subscriptionStatus": "active",
       "expiryDate": "2028-12-31",
       "createdAt": "2026-10-01T00:00:00.000Z"
+    },
+    {
+      "id": "sch_1791381888741",
+      "name": "Lady Of Our  Fatima institute",
+      "code": "DAMAN",
+      "subscriptionStatus": "active",
+      "expiryDate": "2028-12-31",
+      "createdAt": "2026-10-07T14:04:48.741Z"
     }
   ],
   "users": [

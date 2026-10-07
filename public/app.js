@@ -819,10 +819,11 @@ async function handleImageUpload(e) {
 
     let result = null;
     try {
+      const savedClientKey = localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
       const response = await fetch('/api/convert-images', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images: base64Images, subject, chapterNo, chapterName })
+        body: JSON.stringify({ images: base64Images, subject, chapterNo, chapterName, apiKey: savedClientKey })
       });
 
       if (response.ok) {
@@ -837,32 +838,34 @@ async function handleImageUpload(e) {
       result = {
         success: true,
         extractedData: {
-          chapterName: chapterName || 'Chapter 1',
+          chapterName: chapterName || 'Lesson',
           chapterNo: chapterNo || '1',
-          subject: subject || 'General',
+          subject: subject || 'Science',
           sectionQuestions: [
             {
-              heading: 'Q1. Tick (✓) the correct option:',
-              type: 'mcq',
-              items: [
-                { question: `Which of the following is correct for ${chapterName}?`, options: ['Option A', 'Option B', 'Option C'], answer: 'Option A' },
-                { question: 'Select the primary factor:', options: ['True', 'False'], answer: 'True' }
-              ]
-            },
-            {
-              heading: 'Q2. Fill in the blanks:',
-              type: 'fill_in_blanks',
-              items: [
-                `The main topic in Chapter ${chapterNo} is ______________________.`,
-                'We must study ______________________ every day.'
-              ]
-            },
-            {
-              heading: 'Q3. Answer the following questions:',
+              heading: '1. Answer the Following.',
               type: 'short_answer',
               items: [
-                `What is the key takeaway of Chapter ${chapterNo}: ${chapterName}?`,
-                'Explain the main concept in two points.'
+                { question: `What is the main topic of ${subject || 'Science'} Chapter ${chapterNo || '1'}?`, answer: `${chapterName || 'Lesson'} covers core concepts of ${subject || 'Science'}.` }
+              ]
+            },
+            {
+              heading: '2. Define',
+              type: 'define',
+              items: [
+                { question: 'Environment', answer: 'The surroundings of an animal that forms the environment which is just right for it to live in.' },
+                { question: 'Herbivorous animals', answer: 'Herbivorous animals are those that consume only plants.' },
+                { question: 'Omnivorous animals', answer: 'Animals that eat both plants and the flesh of other animals are called omnivorous animals.' },
+                { question: 'Carnivorous animals', answer: 'Animals that eat only the flesh of other animals are known as carnivorous animals.' },
+                { question: 'Plateau', answer: 'A plateau is a raised area having steep slopes and flat top.' },
+                { question: 'Peninsular', answer: 'Peninsular is a triangular land with water on the three sides and land on one side.' }
+              ]
+            },
+            {
+              heading: '3. Fill in the blanks.',
+              type: 'fill_in_blanks',
+              items: [
+                { question: `In ${subject || 'Science'}, energy flows in a __straight line__.`, answer: 'straight line' }
               ]
             }
           ]
@@ -938,6 +941,7 @@ async function handleImageUpload(e) {
 
     currentPaper = {
       title: `${workType.toUpperCase()} - ${stdVal} ${subject}`,
+      isClasswork: (workType === 'classwork' || workType === 'homework'),
       schoolName: currentUser ? currentUser.schoolName : 'School Name',
       date: dateVal,
       standard: stdVal,
@@ -956,7 +960,7 @@ async function handleImageUpload(e) {
     showToast(err.message, 'error');
   } finally {
     btnSubmit.disabled = false;
-    btnSubmit.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Process & Extract Questions`;
+    btnSubmit.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles font-bold"></i> Process & Extract Questions`;
   }
 }
 
@@ -1106,6 +1110,7 @@ function generateAutoExamPaper(isShuffle = false) {
 
   currentPaper = {
     title: `ANNUAL EXAM PAPER - ${stdVal.toUpperCase()}`,
+    isClasswork: false,
     schoolName: currentUser ? currentUser.schoolName : 'School Name',
     date: new Date().toISOString().split('T')[0],
     standard: stdVal,
@@ -1204,6 +1209,7 @@ function buildManualExamPaper() {
 
   currentPaper = {
     title: `MANUAL EXAM PAPER - ${stdVal.toUpperCase()}`,
+    isClasswork: false,
     schoolName: currentUser ? currentUser.schoolName : 'School Name',
     date: new Date().toISOString().split('T')[0],
     standard: stdVal,
@@ -1234,6 +1240,7 @@ function openPracticePaperStudio() {
 
   currentPaper = {
     title: `PRACTICE TEST PAPER - ${stdVal}`,
+    isClasswork: false,
     schoolName: currentUser ? currentUser.schoolName : 'School Name',
     date: new Date().toISOString().split('T')[0],
     standard: stdVal,
@@ -1255,48 +1262,141 @@ function renderA4PaperDOM() {
   const dateStr = currentPaper.date || new Date().toISOString().split('T')[0];
   const std = currentPaper.standard || 'Std 5';
   const sub = currentPaper.subject || 'General';
+  const chapNo = currentPaper.chapterNo || '1';
+  const chapName = currentPaper.chapterName || '';
 
-  let contentHtml = `
-    <div class="text-center border-b-2 border-slate-900 pb-3 space-y-1">
-      <h2 class="text-xl font-black uppercase tracking-wider text-slate-900">${school}</h2>
-      <p class="text-xs font-bold text-slate-600">${city} | Academic Term 2026</p>
-      <div class="flex justify-between items-center text-xs font-bold text-slate-800 pt-2 border-t border-slate-300">
-        <span>Std: ${std}</span>
-        <span class="font-extrabold uppercase tracking-wide">${currentPaper.title || 'QUESTION PAPER'}</span>
-        <span>Subject: ${sub}</span>
-      </div>
-      <div class="flex justify-between items-center text-[11px] font-semibold text-slate-600">
-        <span>Date: ${dateStr}</span>
-        <span>Marks: 50 | Time: 2 Hours</span>
-      </div>
-    </div>
-  `;
+  const isClassworkView = currentPaper.isClasswork || (currentPaper.title && (currentPaper.title.includes('CLASSWORK') || currentPaper.title.includes('HOMEWORK')));
 
-  if (currentPaper.groupedHeadings) {
-    let sectionIdx = 1;
-    for (const [heading, questions] of Object.entries(currentPaper.groupedHeadings)) {
-      if (questions && questions.length > 0) {
-        contentHtml += `
-          <div class="space-y-2 pt-2">
-            <h4 class="font-extrabold text-sm text-slate-900">${heading}</h4>
-            <div class="space-y-2 pl-3">
-              ${questions.map((q, qIdx) => {
-                let qText = q.question || q.text || '';
-                return `
-                  <div class="text-xs text-slate-800">
-                    <span class="font-bold mr-1">(${qIdx + 1})</span> ${qText}
-                    ${q.options && Array.isArray(q.options) ? `
-                      <div class="grid grid-cols-2 md:grid-cols-4 gap-2 pl-4 pt-1 font-medium text-slate-700">
-                        ${q.options.map(opt => `<span>(  ) ${opt}</span>`).join('')}
+  let contentHtml = '';
+
+  if (isClassworkView) {
+    // CLASSWORK SPECIFIC LAYOUT (Exact User Formatting Rules)
+    contentHtml = `
+      <div class="border-b-2 border-slate-900 pb-2 mb-4 space-y-1">
+        <div class="flex justify-between items-center text-sm font-extrabold text-slate-900">
+          <span>Date: ${dateStr}</span>
+          <span class="text-base uppercase tracking-wide">Ch.${chapNo} ${sub} ${chapName ? '- ' + chapName : ''}</span>
+        </div>
+        <div class="text-xs text-slate-500 font-semibold flex justify-between">
+          <span>${school}${city ? ', ' + city : ''}</span>
+          <span>${std} | Classwork Notes</span>
+        </div>
+      </div>
+    `;
+
+    if (currentPaper.groupedHeadings) {
+      let sectionIdx = 1;
+      for (const [heading, questions] of Object.entries(currentPaper.groupedHeadings)) {
+        if (questions && questions.length > 0) {
+          contentHtml += `
+            <div class="space-y-3 pt-2">
+              <h4 class="font-extrabold text-sm text-slate-900">${sectionIdx}. ${heading}</h4>
+              <div class="space-y-3 pl-3">
+                ${questions.map((q, qIdx) => {
+                  let qText = q.question || q.text || '';
+                  let ansText = q.answer || '';
+                  
+                  // Fill in the blanks format with underline
+                  if (heading.toLowerCase().includes('blank') || q.type === 'fill_in_blanks') {
+                    let formattedBlank = qText;
+                    if (ansText && !formattedBlank.includes('__') && !formattedBlank.includes('<u>')) {
+                      formattedBlank = `${formattedBlank} <u class="font-bold px-1 text-slate-900">${ansText}</u>`;
+                    } else {
+                      formattedBlank = formattedBlank.replace(/__([^_]+)__/g, '<u class="font-bold px-1 text-slate-900">$1</u>');
+                    }
+                    return `
+                      <div class="text-xs text-slate-900 font-semibold">
+                        <span class="font-bold mr-1">${qIdx + 1}.</span> ${formattedBlank}
                       </div>
-                    ` : ''}
-                  </div>
-                `;
-              }).join('')}
+                    `;
+                  }
+                  
+                  // Define / Question & Answer format
+                  const isDefineSection = heading.toLowerCase().includes('define') || q.type === 'define';
+                  
+                  if (!qText && isDefineSection && ansText) {
+                    const matchTerm = ansText.match(/^([A-Za-z0-9\s]+?)(?=\s+(is|are|means|refers|can be|was|were)\b|[:\-])/i);
+                    if (matchTerm && matchTerm[1] && matchTerm[1].trim().length < 40) {
+                      qText = matchTerm[1].trim();
+                    }
+                  }
+
+                  if (qText) {
+                    return `
+                      <div class="text-xs text-slate-900 space-y-1">
+                        <div class="font-bold text-slate-900">
+                          <span>Q.${qIdx + 1}.</span> ${qText}
+                        </div>
+                        ${ansText ? `
+                          <div class="pl-4 font-semibold text-slate-900 flex items-start gap-1">
+                            <span class="font-extrabold text-slate-950">Ans:</span>
+                            <span>${ansText}</span>
+                          </div>
+                        ` : ''}
+                      </div>
+                    `;
+                  } else {
+                    return `
+                      <div class="text-xs text-slate-900 space-y-1">
+                        <div class="font-semibold text-slate-900 flex items-start gap-1">
+                          <span class="font-bold text-slate-950">Q.${qIdx + 1}. Ans:</span>
+                          <span>${ansText || ''}</span>
+                        </div>
+                      </div>
+                    `;
+                  }
+                }).join('')}
+              </div>
             </div>
-          </div>
-        `;
-        sectionIdx++;
+          `;
+          sectionIdx++;
+        }
+      }
+    }
+  } else {
+    // STANDARD EXAM PAPER LAYOUT
+    contentHtml = `
+      <div class="text-center border-b-2 border-slate-900 pb-3 space-y-1">
+        <h2 class="text-xl font-black uppercase tracking-wider text-slate-900">${school}</h2>
+        <p class="text-xs font-bold text-slate-600">${city} | Academic Term 2026</p>
+        <div class="flex justify-between items-center text-xs font-bold text-slate-800 pt-2 border-t border-slate-300">
+          <span>Std: ${std}</span>
+          <span class="font-extrabold uppercase tracking-wide">${currentPaper.title || 'QUESTION PAPER'}</span>
+          <span>Subject: ${sub}</span>
+        </div>
+        <div class="flex justify-between items-center text-[11px] font-semibold text-slate-600">
+          <span>Date: ${dateStr}</span>
+          <span>Marks: 50 | Time: 2 Hours</span>
+        </div>
+      </div>
+    `;
+
+    if (currentPaper.groupedHeadings) {
+      let sectionIdx = 1;
+      for (const [heading, questions] of Object.entries(currentPaper.groupedHeadings)) {
+        if (questions && questions.length > 0) {
+          contentHtml += `
+            <div class="space-y-2 pt-2">
+              <h4 class="font-extrabold text-sm text-slate-900">${heading}</h4>
+              <div class="space-y-2 pl-3">
+                ${questions.map((q, qIdx) => {
+                  let qText = q.question || q.text || '';
+                  return `
+                    <div class="text-xs text-slate-800">
+                      <span class="font-bold mr-1">(${qIdx + 1})</span> ${qText}
+                      ${q.options && Array.isArray(q.options) ? `
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2 pl-4 pt-1 font-medium text-slate-700">
+                          ${q.options.map(opt => `<span>(  ) ${opt}</span>`).join('')}
+                        </div>
+                      ` : ''}
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          `;
+          sectionIdx++;
+        }
       }
     }
   }
