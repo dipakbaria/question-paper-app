@@ -129,6 +129,13 @@ function populateAllSubjectDropdowns() {
     filterSelect.innerHTML = `<option value="ALL">All Subjects</option>` + masterSubjects.map(s => `<option value="${s}">${s}</option>`).join('');
     if (currentVal) filterSelect.value = currentVal;
   }
+
+  const parentSubjectSelect = document.getElementById('parent-subject-select');
+  if (parentSubjectSelect) {
+    const currentVal = parentSubjectSelect.value;
+    parentSubjectSelect.innerHTML = `<option value="ALL">All Subjects</option>` + masterSubjects.map(s => `<option value="${s}">${s}</option>`).join('');
+    if (currentVal) parentSubjectSelect.value = currentVal;
+  }
 }
 
 function onUploadSubjectChange(selectEl) {
@@ -626,6 +633,15 @@ function switchRole(role) {
     if (examSubtitle) examSubtitle.innerText = 'Exam paper generator (Locked)';
     if (examIcon) examIcon.className = 'fa-solid fa-lock text-amber-300';
     if (examActionLabel) examActionLabel.innerText = 'Locked for Parents';
+
+    const parentView = document.getElementById('role-parent-view');
+    if (parentView) parentView.classList.remove('hidden');
+    if (currentUser && currentUser.standard) {
+      const stdSelect = document.getElementById('parent-std-select');
+      if (stdSelect) stdSelect.value = currentUser.standard;
+    }
+    populateAllSubjectDropdowns();
+    renderParentClassworkNotes();
   } else {
     if (badgeLock) badgeLock.classList.add('hidden');
     if (badgeLock) badgeLock.classList.remove('flex');
@@ -706,6 +722,24 @@ async function updateModalApiKeyVisibility() {
 }
 
 function openWorkModal(workType) {
+  if (currentRole === 'parent') {
+    const parentView = document.getElementById('role-parent-view');
+    if (parentView) parentView.classList.remove('hidden');
+
+    const parentWorkTypeSelect = document.getElementById('parent-worktype-select');
+    if (parentWorkTypeSelect) parentWorkTypeSelect.value = workType;
+
+    if (currentUser && currentUser.standard) {
+      const parentStdSelect = document.getElementById('parent-std-select');
+      if (parentStdSelect) parentStdSelect.value = currentUser.standard;
+    }
+
+    populateAllSubjectDropdowns();
+    renderParentClassworkNotes();
+    if (parentView) parentView.scrollIntoView({ behavior: 'smooth' });
+    return;
+  }
+
   const titleEl = document.getElementById('upload-modal-title');
   const workTypeInput = document.getElementById('upload-work-type');
   const dateInput = document.getElementById('upload-date');
@@ -772,6 +806,162 @@ async function loadQuestionBank() {
   renderChapterList();
   renderQuestionBankList();
   populateAllSubjectDropdowns();
+  if (currentRole === 'parent') {
+    renderParentClassworkNotes();
+  }
+}
+
+function renderParentClassworkNotes() {
+  const container = document.getElementById('parent-notes-container');
+  if (!container) return;
+
+  const stdVal = document.getElementById('parent-std-select')?.value || 'Std 5';
+  const subVal = document.getElementById('parent-subject-select')?.value || 'ALL';
+  const workTypeVal = document.getElementById('parent-worktype-select')?.value || 'ALL';
+
+  if (!dbData || !dbData.chapters || dbData.chapters.length === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <i class="fa-solid fa-folder-open text-4xl text-slate-300"></i>
+        <h4 class="font-bold text-slate-600">No Classwork or Homework Notes Available</h4>
+        <p class="text-xs text-slate-400 max-w-sm mx-auto">Teachers have not uploaded any notebook notes yet.</p>
+      </div>
+    `;
+    return;
+  }
+
+  let matchingChapters = dbData.chapters.filter(ch => {
+    const stdMatch = !ch.standard || ch.standard.toString().toLowerCase().trim() === stdVal.toString().toLowerCase().trim();
+    const subMatch = subVal === 'ALL' || (ch.subject && ch.subject.toString().toLowerCase().trim() === subVal.toString().toLowerCase().trim());
+    return stdMatch && subMatch;
+  });
+
+  let notesHtml = '';
+  let totalNotesRendered = 0;
+
+  matchingChapters.forEach(ch => {
+    let questions = ch.questions || [];
+
+    if (workTypeVal !== 'ALL') {
+      questions = questions.filter(q => !q.workType || q.workType === workTypeVal);
+    }
+
+    if (questions.length === 0) return;
+
+    totalNotesRendered++;
+
+    const school = (currentUser && currentUser.schoolName) ? currentUser.schoolName : 'School Name';
+    const city = (currentUser && currentUser.cityName) ? currentUser.cityName : '';
+    const dateStr = questions[0]?.date || new Date().toISOString().split('T')[0];
+    const sub = ch.subject || 'Subject';
+    const chapNo = ch.chapterNo || '1';
+    const chapName = ch.chapterName || '';
+    const workTypeLabel = workTypeVal === 'homework' ? 'Homework Notes' : (workTypeVal === 'classwork' ? 'Classwork Notes' : 'Classwork & Homework Notes');
+
+    const grouped = groupQuestionsByHeading(questions);
+
+    let contentHtml = `
+      <div class="border-b-2 border-slate-900 pb-2 mb-4 space-y-1">
+        <div class="flex justify-between items-center text-sm font-extrabold text-slate-900">
+          <span>Date: ${dateStr}</span>
+          <span class="text-base uppercase tracking-wide">Ch.${chapNo} ${sub} ${chapName ? '- ' + chapName : ''}</span>
+        </div>
+        <div class="text-xs text-slate-500 font-semibold flex justify-between">
+          <span>${school}${city ? ', ' + city : ''}</span>
+          <span>${ch.standard || stdVal} | ${workTypeLabel}</span>
+        </div>
+      </div>
+    `;
+
+    let sectionIdx = 1;
+    for (const [heading, qList] of Object.entries(grouped)) {
+      if (qList && qList.length > 0) {
+        const cleanHeading = heading.replace(/^[\*\d\.\)\s]+/, '').replace(/[\.:]+$/, '').trim();
+        contentHtml += `
+          <div class="space-y-3 pt-2">
+            <h4 class="font-extrabold text-sm text-slate-900">${sectionIdx}. ${cleanHeading}.</h4>
+            <div class="space-y-3 pl-3">
+              ${qList.map((q, qIdx) => {
+                let qText = q.question || q.text || '';
+                let ansText = q.answer || '';
+                
+                // Fill in the blanks format with underline
+                if (heading.toLowerCase().includes('blank') || q.type === 'fill_in_blanks') {
+                  let formattedBlank = qText;
+                  if (ansText && !formattedBlank.includes('__') && !formattedBlank.includes('<u>')) {
+                    formattedBlank = `${formattedBlank} <u class="font-bold px-1 text-slate-900">${ansText}</u>`;
+                  } else {
+                    formattedBlank = formattedBlank.replace(/__([^_]+)__/g, '<u class="font-bold px-1 text-slate-900">$1</u>');
+                  }
+                  return `
+                    <div class="text-xs text-slate-900 font-semibold">
+                      <span class="font-bold mr-1">${qIdx + 1}.</span> ${formattedBlank}
+                    </div>
+                  `;
+                }
+                
+                // Define / Question & Answer format
+                const isDefineSection = heading.toLowerCase().includes('define') || q.type === 'define';
+                
+                if (!qText && isDefineSection && ansText) {
+                  const matchTerm = ansText.match(/^([A-Za-z0-9\s]+?)(?=\s+(is|are|means|refers|can be|was|were)\b|[:\-])/i);
+                  if (matchTerm && matchTerm[1] && matchTerm[1].trim().length < 40) {
+                    qText = matchTerm[1].trim();
+                  }
+                }
+
+                if (qText) {
+                  return `
+                    <div class="text-xs text-slate-900 space-y-1">
+                      <div class="font-bold text-slate-900">
+                        <span>Q.${qIdx + 1}.</span> ${qText}
+                      </div>
+                      ${ansText ? `
+                        <div class="pl-4 font-semibold text-slate-900 flex items-start gap-1">
+                          <span class="font-extrabold text-slate-950">Ans:</span>
+                          <span>${ansText}</span>
+                        </div>
+                      ` : ''}
+                    </div>
+                  `;
+                } else {
+                  return `
+                    <div class="text-xs text-slate-900 space-y-1">
+                      <div class="font-semibold text-slate-900 flex items-start gap-1">
+                        <span class="font-bold text-slate-950">Q.${qIdx + 1}. Ans:</span>
+                        <span>${ansText || ''}</span>
+                      </div>
+                    </div>
+                  `;
+                }
+              }).join('')}
+            </div>
+          </div>
+        `;
+        sectionIdx++;
+      }
+    }
+
+    notesHtml += `
+      <div class="bg-slate-200 p-4 rounded-xl flex justify-center overflow-x-auto min-h-[400px]">
+        <div class="bg-white w-[210mm] min-h-[297mm] p-[20mm] shadow-2xl rounded border border-slate-300 font-sans text-slate-900 space-y-4">
+          ${contentHtml}
+        </div>
+      </div>
+    `;
+  });
+
+  if (totalNotesRendered === 0) {
+    container.innerHTML = `
+      <div class="text-center py-12 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <i class="fa-solid fa-folder-open text-4xl text-slate-300"></i>
+        <h4 class="font-bold text-slate-600">No Extracted Notes Found</h4>
+        <p class="text-xs text-slate-400 max-w-sm mx-auto">No teacher notes uploaded for <strong>${stdVal}</strong> - <strong>${subVal === 'ALL' ? 'All Subjects' : subVal}</strong> (${workTypeVal === 'ALL' ? 'Classwork & Homework' : workTypeVal}).</p>
+      </div>
+    `;
+  } else {
+    container.innerHTML = notesHtml;
+  }
 }
 
 async function saveQuestionBank() {
