@@ -665,6 +665,43 @@ function saveModalApiKey(val) {
     localStorage.setItem('paper_ai_gemini_key', key);
     localStorage.setItem('gemini_api_key', key);
     showToast('Saved Gemini API Key for live AI photo extraction!', 'success');
+    updateModalApiKeyVisibility();
+  }
+}
+
+function toggleModalApiKeyBox() {
+  const container = document.getElementById('container-modal-api-key');
+  const badge = document.getElementById('badge-api-key-active');
+  if (container) container.classList.toggle('hidden');
+  if (badge) badge.classList.toggle('hidden');
+}
+
+async function updateModalApiKeyVisibility() {
+  const container = document.getElementById('container-modal-api-key');
+  const badge = document.getElementById('badge-api-key-active');
+  const apiKeyInput = document.getElementById('input-modal-api-key');
+
+  const savedKey = localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
+  if (apiKeyInput) apiKeyInput.value = savedKey;
+
+  let hasValidKey = Boolean(savedKey && savedKey.length > 5);
+
+  if (!hasValidKey) {
+    try {
+      const res = await fetch('/api/config-key');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.hasKey) hasValidKey = true;
+      }
+    } catch (e) {}
+  }
+
+  if (hasValidKey) {
+    if (container) container.classList.add('hidden');
+    if (badge) badge.classList.remove('hidden');
+  } else {
+    if (container) container.classList.remove('hidden');
+    if (badge) badge.classList.add('hidden');
   }
 }
 
@@ -672,7 +709,6 @@ function openWorkModal(workType) {
   const titleEl = document.getElementById('upload-modal-title');
   const workTypeInput = document.getElementById('upload-work-type');
   const dateInput = document.getElementById('upload-date');
-  const apiKeyInput = document.getElementById('input-modal-api-key');
 
   if (workTypeInput) workTypeInput.value = workType;
   if (titleEl) {
@@ -685,11 +721,7 @@ function openWorkModal(workType) {
     dateInput.value = today;
   }
 
-  if (apiKeyInput) {
-    const saved = localStorage.getItem('paper_ai_gemini_key') || localStorage.getItem('gemini_api_key') || '';
-    apiKeyInput.value = saved;
-  }
-
+  updateModalApiKeyVisibility();
   populateAllSubjectDropdowns();
   openModal('modal-upload');
 }
@@ -859,7 +891,21 @@ async function callGeminiVisionDirectClient(key, base64Images, subject, chapterN
   const cleanKey = (key || '').replace(/['"\s]/g, '').trim();
   if (!cleanKey) throw new Error('Gemini API Key is missing. Please enter your free Gemini API key.');
 
-  const candidateModels = ['gemini-1.5-flash', 'gemini-1.5-flash-latest', 'gemini-2.0-flash-exp', 'gemini-2.0-flash', 'gemini-1.5-pro'];
+  let candidateModels = ['gemini-1.5-flash', 'gemini-2.0-flash-exp', 'gemini-2.0-flash', 'gemini-1.5-flash-latest', 'gemini-1.5-flash-8b'];
+
+  try {
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${cleanKey}`);
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      if (listData.models && Array.isArray(listData.models)) {
+        const visionEligible = listData.models
+          .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes('generateContent'))
+          .map(m => m.name.replace(/^models\//, ''))
+          .filter(name => !name.includes('tts') && !name.includes('audio') && !name.includes('embedding') && !name.includes('imagen') && !name.includes('gemma') && !name.includes('bison') && !name.includes('veo'));
+        if (visionEligible.length > 0) candidateModels = visionEligible;
+      }
+    }
+  } catch (e) {}
 
   const prompt = `
 You are an expert student notebook OCR & Classwork Question-Answer Extractor.

@@ -403,8 +403,8 @@
       <form id="upload-form" onsubmit="handleImageUpload(event)" class="space-y-4">
         <input type="hidden" id="upload-work-type" value="homework">
 
-        <!-- Gemini API Key field for mobile live OCR -->
-        <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5">
+        <!-- Gemini API Key field for mobile live OCR (Auto-hidden when key is saved) -->
+        <div id="container-modal-api-key" class="p-3 bg-amber-50 border border-amber-200 rounded-xl space-y-1.5">
           <div class="flex justify-between items-center">
             <label class="text-xs font-bold text-amber-900 flex items-center gap-1">
               <i class="fa-solid fa-key text-amber-600"></i> Gemini API Key (Required for Live OCR)
@@ -413,6 +413,11 @@
           </div>
           <input type="password" id="input-modal-api-key" placeholder="Paste free Gemini API Key (AIzaSy...)" onchange="saveModalApiKey(this.value)" class="w-full text-xs font-mono border border-amber-300 rounded-lg p-2 bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none">
           <p class="text-[10px] text-amber-800 font-medium">Paste your free Google Gemini key once so your notebook photos are extracted live with AI.</p>
+        </div>
+
+        <div id="badge-api-key-active" class="hidden flex justify-between items-center px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl text-xs font-bold text-emerald-800">
+          <span><i class="fa-solid fa-circle-check text-emerald-600 mr-1"></i> Live AI Vision Key Active</span>
+          <button type="button" onclick="toggleModalApiKeyBox()" class="text-[10px] text-indigo-600 hover:underline">Change Key</button>
         </div>
 
         <div class="grid grid-cols-2 gap-3">
